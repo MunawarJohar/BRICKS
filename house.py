@@ -23,7 +23,7 @@ class house:
         self.soil = None
         self.gaussian = None
         self.gshapes = None
-        self.LTSM = None
+        self.dfltsm = None
 
     def interpolate(self):
         for i, wall in enumerate(self.house):
@@ -213,7 +213,10 @@ class house:
                                         'xi': xi,
                                         'xj': xj,
                                         'xinflection': x_inflection,
-                                        'xlimit': x_limit,}
+                                        'xlimit': x_limit,
+                                        'limitline': limit_line,
+                                        'height': height,}
+        
     
     def find_root_iterative(self, guess, parameters, tolerance, step):
         output = self.gaussian_shape(guess, parameters[0],parameters[1])
@@ -245,7 +248,7 @@ class house:
 
         val_ltsm = [(wall, list(house[wall]['ltsm'].values()))
                     for wall in self.house]
-        self.LTSM = pd.DataFrame(val_ltsm, columns=['Wall Name', 'e_tot', 'e_bt', 'e_dt', 'e_b_h','e_b_s'])
+        self.dfltsm = pd.DataFrame(val_ltsm, columns=['Wall Name', 'e_tot', 'e_bt', 'e_dt', 'e_b_h','e_b_s'])
 
     @staticmethod
     def interpolate_2d(x_boundary, y_boundary, z_boundary, x_values, y_values, method):

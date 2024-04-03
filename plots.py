@@ -122,6 +122,10 @@ def subsidence(OBJECT):
     for key, value in int_soil.items():
         globals()[key] = value
 
+    x = OBJECT.soil['soil']['x']
+    y = OBJECT.soil['soil']['y']
+    z = OBJECT.soil['soil']['z']
+
     fig.add_trace(
         go.Surface(x=x, 
                     y=y,
@@ -165,29 +169,29 @@ def LTSM_plot(OBJECT):
             fig = make_subplots(rows=2, cols=1,
                                 shared_xaxes=True, vertical_spacing=0.1,
                                 subplot_titles=('Subsidence Profile', 'Legend'))
-            fig.add_trace(go.Scatter(x=X, 
-                                    y=W, 
+            fig.add_trace(go.Scatter(x=x, 
+                                    y=w, 
                                     mode='lines', 
                                     name='Subsidence profile'), 
                                     row=2, col=1)
-            fig.add_trace(go.Scatter(x=X, 
-                                    y=np.full(len(X), limit_line), 
+            fig.add_trace(go.Scatter(x=x, 
+                                    y=np.full(len(x), limitline), 
                                     mode='lines', name='Limit Line',
                                     line=dict(color='black', dash='dash', width=1)), 
                                     row=2, col=1)
             height /= 1e3
-            for z in [-x_inflection, x_inflection]:
+            for z in [-xinflection, xinflection]:
                 fig.add_trace(go.Scatter(x=[z, z], y=[0, height], mode='lines', name='Inflection point',
                                         line=dict(color='black', width=1, dash='dash')), row=1, col=1)
                 
-                fig.add_trace(go.Scatter(x=[z, z], y=[W.min(), W.max()], mode='lines', name='Inflection point',
+                fig.add_trace(go.Scatter(x=[z, z], y=[w.min(), w.max()], mode='lines', name='Inflection point',
                                         line=dict(color='black', width=1, dash='dash')), row=2, col=1)
 
-            for influence in [-x_limit, x_limit]:
+            for influence in [-xlimit, xlimit]:
                 fig.add_trace(go.Scatter(x=[influence, influence], y=[0, height], mode='lines', name='Influence area',
                                         line=dict(color='black', width=1, dash='dashdot')), row=1, col=1)
                 
-                fig.add_trace(go.Scatter(x=[influence, influence], y=[W.min(), W.max()], mode='lines', name='Influence area',
+                fig.add_trace(go.Scatter(x=[influence, influence], y=[w.min(), w.max()], mode='lines', name='Influence area',
                                         line=dict(color='black', width=1, dash='dashdot')), row=2, col=1)
           
             fig.add_shape(
