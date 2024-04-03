@@ -1,8 +1,8 @@
 import dash
 import numpy as np
 import plotly.graph_objects as go
-import dash_core_components as dcc
-import dash_html_components as html
+from dash import dcc
+from dash import html
 from plotly.subplots import make_subplots
 
 def subsidence(OBJECT):
@@ -159,7 +159,7 @@ def LTSM_plot(OBJECT):
         house = OBJECT.house
         app = dash.Dash(__name__)
         figs = []
-
+        h = 5
         for wall in house:
 
             ltsm_params = house[wall]['ltsm']['params']
@@ -167,8 +167,12 @@ def LTSM_plot(OBJECT):
                 globals()[key] = value
             # ----------------------------------- PLOTS ---------------------------------- #
             fig = make_subplots(rows=2, cols=1,
-                                shared_xaxes=True, vertical_spacing=0.1,
-                                subplot_titles=('Subsidence Profile', 'Legend'))
+                                vertical_spacing=0.1,
+                                shared_xaxes=True,
+                                shared_yaxes=True,
+                                x_title='Length [m]',
+                                y_title='Height [m,mm]',
+                                subplot_titles=('Relative Wall position', 'Subsidence profile'))
             fig.add_trace(go.Scatter(x=x, 
                                     y=w, 
                                     mode='lines', 
@@ -176,19 +180,18 @@ def LTSM_plot(OBJECT):
                                     row=2, col=1)
             fig.add_trace(go.Scatter(x=x, 
                                     y=np.full(len(x), limitline), 
-                                    mode='lines', name='Limit Line',
+                                    mode='lines', name=f'Limit Line [{limitline} mm]',
                                     line=dict(color='black', dash='dash', width=1)), 
                                     row=2, col=1)
-            height /= 1e3
             for z in [-xinflection, xinflection]:
-                fig.add_trace(go.Scatter(x=[z, z], y=[0, height], mode='lines', name='Inflection point',
+                fig.add_trace(go.Scatter(x=[z, z], y=[0, h], mode='lines', name='Inflection point',
                                         line=dict(color='black', width=1, dash='dash')), row=1, col=1)
                 
                 fig.add_trace(go.Scatter(x=[z, z], y=[w.min(), w.max()], mode='lines', name='Inflection point',
                                         line=dict(color='black', width=1, dash='dash')), row=2, col=1)
 
             for influence in [-xlimit, xlimit]:
-                fig.add_trace(go.Scatter(x=[influence, influence], y=[0, height], mode='lines', name='Influence area',
+                fig.add_trace(go.Scatter(x=[influence, influence], y=[0, h], mode='lines', name='Influence area',
                                         line=dict(color='black', width=1, dash='dashdot')), row=1, col=1)
                 
                 fig.add_trace(go.Scatter(x=[influence, influence], y=[w.min(), w.max()], mode='lines', name='Influence area',
@@ -196,16 +199,20 @@ def LTSM_plot(OBJECT):
           
             fig.add_shape(
                 type="rect",
-                x0=xi, y0=0,
-                x1=xj, y1=height,
+                x0= 0 , y0=0,
+                x1= xj - xi, y1=h,
                 fillcolor="rgba(0,0,0,0.1)",
                 row=1, col=1
             )
             fig.update_layout(title='LTSM problem scheme for wall',
-                            xaxis_title='X-Axis',
-                            yaxis_title='Z-Axis',
                             legend=dict(traceorder="normal"), 
                             template='plotly_white')
+            # ---------------------- Remove duplicate legend entries --------------------- #
+            names = set()
+            fig.for_each_trace(
+                lambda trace:
+                    trace.update(showlegend=False)
+                    if (trace.name in names) else names.add(trace.name))
             figs.append(fig)
 
         tab_heading_style = {
@@ -216,5 +223,6 @@ def LTSM_plot(OBJECT):
         app.layout = html.Div([
             dcc.Tabs(children=tabs_content)
         ])
-        if __name__ == '__main__':
-            app.run_server(debug=True)
+
+        return app
+        

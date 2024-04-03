@@ -159,30 +159,27 @@ class house:
             # -------------------------- Compute LTSM parameters ------------------------- #
             if i % 2 == 0:  # Wall along y axis
                 xi = self.house[wall]['y'].min()
-                xj = self.house[wall]['y'].max()
-                length = xi - xj
+                xj = self.house[wall]['y'].max()    
             else:  # Wall along x axis
                 xi = self.house[wall]['x'].min()
                 xj = self.house[wall]['x'].max()
-                length = xi - xj
-            length *= 1e3
+            length = xj - xi
 
-            l_max = self.house[wall]['int']['ax'].max() * 1e3
             x_inflection = np.abs(self.house[wall]['params']['x_inflection'])
-            w_inflection = interp1d(X, W)(x_inflection)
-            x_limit = interp1d(W, X)(limit_line)
-            l_hogging = (x_inflection - x_limit) * 1e3
+            w_inflection = interp1d(X, W, kind = 'nearest')(x_inflection)
+            x_limit = np.abs(interp1d(W, X, kind = 'nearest')(limit_line))
+            l_hogging = max((length - x_inflection) * 1e3, 0)
             lh_hogging = l_hogging / height
-            dw_hogging = w_inflection - limit_line
-            dl_hogging = dw_hogging / l_hogging
+            dw_hogging = np.abs(w_inflection - limit_line)
+            dl_hogging = 0 if l_hogging == 0 else dw_hogging / l_hogging
 
-            l_sagging = (l_max - x_inflection) * 1e3
+            l_sagging = length * 1e3 - l_hogging
             lh_sagging = l_sagging / (height / 2)
-            dw_sagging = W.min() - w_inflection
+            dw_sagging = np.abs(W.min() + w_inflection) 
             dl_sagging = dw_sagging / l_sagging
             # -------------------------- Compute strain measures ------------------------- #
             e_bending_hogg = dl_hogging * (3 * lh_hogging / (1 / 4 * lh_hogging ** 2 + 1.2 * eg_rat))
-            e_shear_hogg = dl_hogging * (3 * eg_rat / (1 / 2 * lh_hogging ** 2 + 2 * 1.2 * eg_rat))
+            e_shear_hogg = dl_hogging * (3 * eg_rat / ((0.5*lh_hogging**2) + 2 * 1.2 * eg_rat))
 
             e_bending_sagg = dl_sagging * (6 * lh_sagging / (lh_sagging ** 2 + 2 * eg_rat))
             e_shear_sagg = dl_sagging * (3 * lh_sagging / (2 * lh_sagging ** 2 + 2 * 1.2 * eg_rat))
@@ -195,7 +192,8 @@ class house:
             e_dt = e_horizontal / 2 + np.sqrt((e_horizontal / 2) ** 2 + e_shear ** 2)
             e_tot = np.max([e_bt, e_dt])
 
-            self.house[wall]['ltsm'] = {'e_tot': e_tot,
+            self.house[wall]['ltsm'] = {}
+            self.house[wall]['ltsm']['variables'] = {'e_tot': e_tot,
                                         'e_bt': e_bt,
                                         'e_dt': e_dt,
                                         'e_bh': e_bending_hogg,
@@ -215,7 +213,7 @@ class house:
                                         'xinflection': x_inflection,
                                         'xlimit': x_limit,
                                         'limitline': limit_line,
-                                        'height': height,}
+                                        'h': height}
         
     
     def find_root_iterative(self, guess, parameters, tolerance, step):
@@ -246,9 +244,9 @@ class house:
             for i in self.house]
         self.gshapes = pd.DataFrame(gshapes, columns=['Wall Name', 'Reference Length', 'S Vmax', 'X Inflection'])
 
-        val_ltsm = [(wall, list(house[wall]['ltsm'].values()))
+        val_ltsm = [[wall] + list(self.house[wall]['ltsm']['variables'].values())
                     for wall in self.house]
-        self.dfltsm = pd.DataFrame(val_ltsm, columns=['Wall Name', 'e_tot', 'e_bt', 'e_dt', 'e_b_h','e_b_s'])
+        self.dfltsm = pd.DataFrame(val_ltsm, columns=['Wall Name', 'e_tot', 'e_bt', 'e_dt', 'e_bh','e_bs','e_sh','e_ss','e_h','l_h', 'l_s', 'dw_h', 'dw_s'])
 
     @staticmethod
     def interpolate_2d(x_boundary, y_boundary, z_boundary, x_values, y_values, method):
