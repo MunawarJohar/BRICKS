@@ -7,6 +7,71 @@ from dash import dcc
 from dash import html
 from plotly.subplots import make_subplots
 
+def plot_surface(x_mesh, y_mesh, z_lin, z_qint):
+
+    fig = make_subplots(rows=1, cols=2,
+                        specs=[[{'type': 'surface'}, {'type': 'surface'}]],
+                        subplot_titles=('Through differential settlements 1st order interpolation', 'Through sagging-hogging soil profile 2nd order interpolation'),
+                        )
+    fig.add_trace(
+        go.Surface(x=x_mesh, y=y_mesh, z=z_lin, colorscale='solar', opacity=0.8),
+        row=1, col=1
+    )
+    fig.add_trace(
+        go.Surface(x=x_mesh, y=y_mesh, z=z_qint, colorscale='solar', opacity=0.8),
+        row=1, col=2
+    )
+
+    fig.update_traces(contours_z=dict(show=True, usecolormap=False))
+    fig.update_layout(
+        scene=dict(
+            xaxis=dict(title='X [m]', color='black'),
+            yaxis=dict(title='Y [m]',color='black'),
+            zaxis=dict(title='Z [mm]',color='black'),
+            camera_eye=dict(x=0.5, y=1.2, z=0.4),
+            aspectmode="auto",
+        ),
+        scene2=dict(
+            xaxis=dict(title='X [m]',color='black'),
+            yaxis=dict(title='Y [m]',color='black'),
+            zaxis=dict(title='Z [mm]',color='black'),
+            camera_eye=dict(x=0.5, y=1.2, z=0.4),
+            aspectmode="auto",
+        ),
+        title='Aproximated subsidence surface',
+        template='plotly_white',
+        margin=dict(t=0,b=30)
+    )
+
+    fig.show()
+
+def wall_displacement(OBJECT):
+    fig = go.Figure()
+    colors = ['#3182bd', '#6baed6', '#9ecae1', '#c6dbef', '#eff3ff']  
+    line_types = ['solid', 'dash']
+    house = OBJECT.house
+
+    for i, wall in enumerate(house):
+        color_index = i % len(colors)
+        fig.add_trace(go.Scatter(x= house[wall]['int']['ax'], 
+                                y= house[wall]['int']["z_lin"], 
+                                mode='lines',
+                                line=dict(color=colors[color_index], dash=line_types[0]),
+                                name=f'Wall {i+1} Linear'))
+        fig.add_trace(go.Scatter(x= house[wall]['int']['ax'], 
+                                y= house[wall]['int']['z_q'], 
+                                mode='lines',
+                                line=dict(color=colors[color_index], dash=line_types[1]),
+                                name=f'Wall {i+1} Quadratic'))
+
+    fig.update_layout(title='Approximation of Different Walls',
+                    xaxis_title='X-Axis',
+                    yaxis_title='Z-Axis',
+                    legend=dict(x=1.05, y=1, traceorder="normal"), 
+                    template='plotly_white',)
+    fig.show()
+
+
 def subsidence(OBJECT):
     house = OBJECT.house
     fig = go.Figure()

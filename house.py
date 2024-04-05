@@ -6,26 +6,51 @@ from scipy.optimize import curve_fit
 
 class house:
     def __init__(self, measurements):
-        self.house = measurements
+        """
+        Initialize a House object with the given measurements.
 
+        Parameters:
+        measurements (dict): A dictionary containing the measurements of the house.
+
+        Attributes:
+        house (dict): The measurements of the house.
+        soil (None): Placeholder for soil information.
+        gaussian (None): Placeholder for Gaussian information.
+        boundary (list): The boundary coordinates of the house.
+        vertices (list): The vertices of the house walls.
+        gshapes (None): Placeholder for gshapes information.
+        dfltsm (None): Placeholder for dfltsm information.
+        """ 
+        self.house = measurements
+        self.soil = None
+        self.gaussian = None
+        
+        # --------------------------------- Geometry --------------------------------- #
         x_boundary = np.concatenate([self.house[wall]["x"] for wall in self.house])
         y_boundary = np.concatenate([self.house[wall]["y"] for wall in self.house])
         z_boundary = np.concatenate([self.house[wall]["z"] for wall in self.house])
         self.boundary = [x_boundary, y_boundary, z_boundary]
-        
         self.vertices = [[self.house[wall]['x'].min() if x else self.house[wall]['x'].max(), 
                             self.house[wall]['y'].min() if y else self.house[wall]['y'].max(), 
                             z] 
                             for wall in self.house
                             for x, y, z in itertools.product([0,10], repeat=3)] + [[0,0,0]] # get all vertices of the walls
         self.vertices = list(set(tuple(vertex) for vertex in self.vertices))
-        
-        self.soil = None
-        self.gaussian = None
+        # -------------------------------- Dataframes -------------------------------- #
         self.gshapes = None
         self.dfltsm = None
 
     def interpolate(self):
+        """
+        Interpolates the data points to create a mesh and perform interpolation.
+
+        This method interpolates the data points of the house object to create a mesh and perform interpolation
+        using linear and cubic interpolation methods. The interpolated values are then assigned to the respective
+        walls of the house.
+
+        Returns:
+            None
+        """
         for i, wall in enumerate(self.house):
             x_min = min(self.house[wall]["x"].min() for wall in self.house)
             x_max = max(self.house[wall]["x"].max() for wall in self.house)
