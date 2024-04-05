@@ -167,16 +167,21 @@ class house:
 
             x_inflection = np.abs(self.house[wall]['params']['x_inflection'])
             w_inflection = interp1d(X, W, kind = 'nearest')(x_inflection)
+            w_current = interp1d(X, W, kind = 'nearest')(length)
             x_limit = np.abs(interp1d(W, X, kind = 'nearest')(limit_line))
             l_hogging = max((length - x_inflection) * 1e3, 0)
             lh_hogging = l_hogging / height
-            dw_hogging = np.abs(w_inflection - limit_line)
+            dw_hogging = np.abs(w_current - w_inflection) ## location of building
             dl_hogging = 0 if l_hogging == 0 else dw_hogging / l_hogging
 
             l_sagging = length * 1e3 - l_hogging
             lh_sagging = l_sagging / (height / 2)
-            dw_sagging = np.abs(W.min() + w_inflection) 
+            dw_sagging = np.abs(W.min() + w_inflection) ## fix this
             dl_sagging = dw_sagging / l_sagging
+
+            ratio = height/ 2*1e3
+            uxy = (self.house[wall]['phi'][-1] - self.house[wall]['phi'][0])* 1000 * ratio
+            e_horizontal = uxy / length*1e3
             # -------------------------- Compute strain measures ------------------------- #
             e_bending_hogg = dl_hogging * (3 * lh_hogging / (1 / 4 * lh_hogging ** 2 + 1.2 * eg_rat))
             e_shear_hogg = dl_hogging * (3 * eg_rat / ((0.5*lh_hogging**2) + 2 * 1.2 * eg_rat))
@@ -189,7 +194,7 @@ class house:
             e_horizontal = 0  ## How do you calculate delta L
 
             e_bt = e_bending + e_horizontal
-            e_dt = e_horizontal / 2 + np.sqrt((e_horizontal / 2) ** 2 + e_shear ** 2)
+            e_dt = e_horizontal / (2 + np.sqrt((e_horizontal / 2) ** 2 + e_shear ** 2))
             e_tot = np.max([e_bt, e_dt])
 
             self.house[wall]['ltsm'] = {}
@@ -213,8 +218,7 @@ class house:
                                         'xinflection': x_inflection,
                                         'xlimit': x_limit,
                                         'limitline': limit_line,
-                                        'h': height}
-        
+                                        'h': height} 
     
     def find_root_iterative(self, guess, parameters, tolerance, step):
         output = self.gaussian_shape(guess, parameters[0],parameters[1])
