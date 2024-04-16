@@ -63,9 +63,9 @@ class house:
         x_mesh, y_mesh = np.meshgrid(x_lin, y_lin)
         x_boundary, y_boundary, z_boundary = self.boundary
         # ------------------------------- Interpolation ------------------------------ #
-        z_lin = self.interpolate_2d(x_boundary, y_boundary, z_boundary, x_mesh, y_mesh, 'linear')
+        z_lin = interpolate_2d(x_boundary, y_boundary, z_boundary, x_mesh, y_mesh, 'linear')
         z_lin[int((36/70)*100):,int((89/108)*100):] = np.nan
-        z_qint = self.interpolate_2d(x_boundary, y_boundary, z_boundary, x_mesh, y_mesh, 'cubic')
+        z_qint = interpolate_2d(x_boundary, y_boundary, z_boundary, x_mesh, y_mesh, 'cubic')
         z_qint[int((36/70)*100):,int((89/108)*100):] = np.nan
         # -------------------------- Repartition into walls -------------------------- #
         for i, wall in enumerate(self.house):
@@ -120,7 +120,7 @@ class house:
             x_gauss = np.concatenate((-x_data[:index+1][::-1], x_data[:index]))
             x_data = np.concatenate((x_data[:index+1], x_data[index] + x_data[:index+1]))
 
-            optimized_parameters, params_cov = curve_fit(f=self.gaussian_shape, xdata=x_gauss, ydata=y_normal) 
+            optimized_parameters, params_cov = curve_fit(f= gaussian_shape, xdata=x_gauss, ydata=y_normal) 
             guess = self.find_root_iterative(i_guess, optimized_parameters, tolerance, step)
 
             x_gauss_2 = np.linspace(0, guess, 50) 
@@ -137,7 +137,7 @@ class house:
             # ------------------------ interpolate gaussian shapes ----------------------- #
             wall = self.house[wall]
             xnormal = np.array(params['ax'])  # Ensure ax is a numpy array
-            zi = self.gaussian_shape(params['x_gauss'], params['s_vmax'], params['x_inflection'])
+            zi = gaussian_shape(params['x_gauss'], params['s_vmax'], params['x_inflection'])
 
             if i % 2 == 0:  # Wall is along the y axis
                 y_soil.extend(np.linspace(xnormal.min(), xnormal.max(), 100).tolist())
@@ -179,7 +179,7 @@ class house:
             i = list(self.house.keys()).index(wall) 
             params = self.house[wall]['params']
             
-            W = self.gaussian_shape(params['x_gauss'], params['s_vmax'], params['x_inflection'])
+            W = gaussian_shape(params['x_gauss'], params['s_vmax'], params['x_inflection'])
             X = params['x_gauss']
             # -------------------------- Compute LTSM parameters ------------------------- #
             if i % 2 == 0:  # Wall along y axis
@@ -246,10 +246,10 @@ class house:
                                         'h': height} 
     
     def find_root_iterative(self, guess, parameters, tolerance, step):
-        output = self.gaussian_shape(guess, parameters[0],parameters[1])
+        output = gaussian_shape(guess, parameters[0],parameters[1])
         while abs(output) > tolerance:
             guess += step 
-            output = self.gaussian_shape(guess, *parameters)
+            output = gaussian_shape(guess, *parameters)
         return guess
         
     def get_range(self, wall, key):
@@ -277,12 +277,12 @@ class house:
                     for wall in self.house]
         self.dfltsm = pd.DataFrame(val_ltsm, columns=['Wall Name', 'e_tot', 'e_bt', 'e_dt', 'e_bh','e_bs','e_sh','e_ss','e_h','l_h', 'l_s', 'dw_h', 'dw_s'])
 
-    @staticmethod
-    def interpolate_2d(x_boundary, y_boundary, z_boundary, x_values, y_values, method):
-        Z_interpolation = griddata((x_boundary, y_boundary), z_boundary, (x_values, y_values), method=method)
-        return Z_interpolation
-    @staticmethod
-    def gaussian_shape(x, s_vmax, x_inflection):
-        gauss_func = s_vmax * np.exp(-x**2/ (2*x_inflection**2))
-        return gauss_func
+
+def interpolate_2d(x_boundary, y_boundary, z_boundary, x_values, y_values, method):
+    Z_interpolation = griddata((x_boundary, y_boundary), z_boundary, (x_values, y_values), method=method)
+    return Z_interpolation
+
+def gaussian_shape(x, s_vmax, x_inflection):
+    gauss_func = s_vmax * np.exp(-x**2/ (2*x_inflection**2))
+    return gauss_func
         

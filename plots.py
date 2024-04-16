@@ -1,11 +1,12 @@
-import dash
 import numpy as np
-import plotly.graph_objects as go
-import matplotlib.pyplot as plt
-from matplotlib.colors import LinearSegmentedColormap
+import dash
 from dash import dcc
 from dash import html
+import plotly.graph_objects as go
 from plotly.subplots import make_subplots
+import matplotlib.pyplot as plt
+from matplotlib.colors import LinearSegmentedColormap
+from house import gaussian_shape, interpolate_2d
 
 def plot_surface(x_mesh, y_mesh, z_lin, z_qint):
 
@@ -13,6 +14,7 @@ def plot_surface(x_mesh, y_mesh, z_lin, z_qint):
                         specs=[[{'type': 'surface'}, {'type': 'surface'}]],
                         subplot_titles=('Through differential settlements 1st order interpolation', 'Through sagging-hogging soil profile 2nd order interpolation'),
                         )
+    
     fig.add_trace(
         go.Surface(x=x_mesh, y=y_mesh, z=z_lin, colorscale='solar', opacity=0.8),
         row=1, col=1
@@ -29,18 +31,17 @@ def plot_surface(x_mesh, y_mesh, z_lin, z_qint):
             yaxis=dict(title='Y [m]',color='black'),
             zaxis=dict(title='Z [mm]',color='black'),
             camera_eye=dict(x=0.5, y=1.2, z=0.4),
-            aspectmode="auto",
+            aspectratio=dict(x= 2, y= 3, z= 0.5),
         ),
         scene2=dict(
             xaxis=dict(title='X [m]',color='black'),
             yaxis=dict(title='Y [m]',color='black'),
             zaxis=dict(title='Z [mm]',color='black'),
             camera_eye=dict(x=0.5, y=1.2, z=0.4),
-            aspectmode="auto",
+            aspectratio=dict(x= 2, y= 3, z= 0.5),
         ),
         title='Aproximated subsidence surface',
         template='plotly_white',
-        margin=dict(t=0,b=30)
     )
 
     fig.show()
@@ -72,143 +73,191 @@ def wall_displacement(OBJECT):
     fig.show()
 
 
-def subsidence(OBJECT):
-    house = OBJECT.house
+def building_traces(OBJECT):
+    
+    x_bound = []
+    y_bound = []
+    wall_val = OBJECT.house.values()
+
+    for wall in wall_val:
+        x = np.concatenate([wall['x'], wall['x'][::-1]])   
+        x_bound += [wall['x'].min(), wall['x'].max()] 
+        x = np.vstack([x,x])
+
+        y = np.concatenate([wall['y'], wall['y'][::-1]])
+        y = np.vstack([y,y])
+        y_bound += [wall['y'].min(), wall['y'].max()]
+
+        z = np.empty((2,len(wall)))
+        z[0,:] = np.full((1,len(wall)), fill_value= 0)
+        z[1,:] = np.full((1,len(wall)), fill_value = wall['height'])
+        
+        x_bound = np.array(x_bound) # Floor and roof
+        y_bound = np.array(y_bound)
+        z0 = np.zeros(x_bound.shape)
+        z1 = np.full(x_bound.shape, wall['height'])
+        h = [z0,z1]
+
+        return {'walls': {'x:': x,
+                          'y': y,
+                          'h': h,},
+                'floors': {'x': x_bound,
+                           'y': y_bound,
+                           'h': h}}
+
+def subsidence(OBJECT, building = False, soil = False, deformation = True) -> go.Figure():
+    """
+    Plot subsidence data.
+
+    ## Args:
+        OBJECT: The object containing the subsidence data.
+        building (bool): Whether to plot building data. Default is False.
+        soil (bool): Whether to plot soil data. Default is False.
+        deformation (bool): Whether to plot deformation data. Default is True.
+
+    ## Returns:
+        go.Figure: The plotly figure object.
+    """    
     fig = go.Figure()
-    color = ['black','#EC6842','#00B8C8']
-
     x_mesh, y_mesh, z_lin, z_qint = OBJECT.soil['house'].values()
-    z_min = -min(OBJECT.house[wall]["z"].min() for wall in OBJECT.house)/100
-    z_rat = z_min / x_mesh.max()
-    y_rat = y_mesh.max() / x_mesh.max()
 
-    for i, wall in enumerate(house):
-        wall = house[wall]
-        if np.all(wall['x'] == wall['x'][0]):  # Wall is along the y axis
-            y_lin = np.linspace(wall["y"].min() , wall["y"].max() , 100)
-            interp_vals = np.interp(y_lin, wall['y'], wall['z'])
-            x = np.full_like(y_lin, wall['x'][0])  # Xcoord constant
-            fig.add_trace(go.Scatter3d(x=x, y=y_lin, 
-                                    z=interp_vals, 
-                                    mode='lines', 
-                                    name='Wall',
-                                    line = dict(color=color[0])))
-            
-            fig.add_trace(go.Scatter3d(x=np.full_like(wall['y'], wall['x'][0]), 
-                                        y=wall['y'], 
-                                        z= wall['z'],
-                                        mode='markers', 
-                                        marker=dict(size=4, color=color[0]),
-                                        showlegend=False))
-            #fig.add_trace(go.Scatter3d(x=x, y=y_lin, 
-            #                         z= np.zeros_like(interp_vals),
-            #                         mode='lines',
-            #                         line=dict(color=color[2], dash='dash'),
-            #                         showlegend=False))
-            
-            # fig.add_trace(go.Scatter3d(x=np.full_like(wall['y'], wall['x'][0]), 
-            #                             y=wall['y'], 
-            #                             z= np.zeros_like(wall['z']),
-            #                             mode='markers',
-            #                             marker=dict(size=2, color=color[2]),
-            #                             showlegend=False))
-        else:  # Wall is along the x axis
-            x_lin = np.linspace(wall["x"].min() , wall["x"].max() , 100)
-            interp_vals = np.interp(x_lin, wall['x'], wall['z'])
-            y = np.full_like(x_lin, wall['y'][0])  # Ycoord constant
-            fig.add_trace(go.Scatter3d(x=x_lin, 
-                                            y=y, 
-                                            z=interp_vals, 
-                                            mode='lines',
-                                            name='Wall',
-                                            line = dict(color=color[0])))
-            # 
-            fig.add_trace(go.Scatter3d(x= wall['x'],
-                                            y=np.full_like(wall['x'], 
-                                            wall['y'][0]), 
-                                            z=wall['z'], 
-                                            mode='markers',
+    if deformation: #Plot estimation of measured deformation surface
+        
+        fig.add_trace(
+            go.Surface(x=x_mesh,
+                    y=y_mesh, 
+                    z=z_qint, 
+                    colorscale='solar', 
+                    opacity=0.8,
+                    showscale=False,)
+        )
+
+        house = OBJECT.house  
+        color = ['black','#EC6842','#00B8C8']
+        for i, wall in enumerate(house):
+            wall = house[wall]
+            if np.all(wall['x'] == wall['x'][0]):  # Wall is along the y axis
+                y_lin = np.linspace(wall["y"].min() , wall["y"].max() , 100)
+                interp_vals = np.interp(y_lin, wall['y'], wall['z'])
+                x = np.full_like(y_lin, wall['x'][0])  # Xcoord constant
+                fig.add_trace(go.Scatter3d(x=x, y=y_lin, 
+                                        z=interp_vals, 
+                                        mode='lines', 
+                                        name='Wall',
+                                        line = dict(color=color[0])))
+                
+                fig.add_trace(go.Scatter3d(x=np.full_like(wall['y'], wall['x'][0]), 
+                                            y=wall['y'], 
+                                            z= wall['z'],
+                                            mode='markers', 
                                             marker=dict(size=4, color=color[0]),
                                             showlegend=False))
-            # fig.add_trace(go.Scatter3d(x=x_lin, 
-            #                                 y=y, 
-            #                                 z=np.zeros_like(interp_vals),
-            #                                 mode='lines',
-            #                                 line=dict(color=color[2], dash='dash'),
-            #                                 showlegend=False))
-            # fig.add_trace(go.Scatter3d(x= wall['x'],
-            #                                 y=np.full_like(wall['x'], 
-            #                                 wall['y'][0]), 
-            #                                 z= np.zeros_like(wall['z']),
-            #                                 mode='markers',
-            #                                 marker=dict(size=2, color=color[2]),
-            #                                 showlegend=False))
-    # --------------------------- plot gaussian shapes --------------------------- #
-    x_x =[]
-    x_y =[]
-    y_x = []
-    y_y = []
-    for i, wall in enumerate(house):
-        wall = house[wall]
-        w_param = wall['params']
-        
-        xnormal = w_param['ax']
-        x = w_param['x_gauss']
-        svmax = w_param['s_vmax']
-        xinflection = w_param['x_inflection']
-        z_curr = OBJECT.gaussian_shape(x,svmax,xinflection)
+            else:  # Wall is along the x axis
+                x_lin = np.linspace(wall["x"].min() , wall["x"].max() , 100)
+                interp_vals = np.interp(x_lin, wall['x'], wall['z'])
+                y = np.full_like(x_lin, wall['y'][0])  # Ycoord constant
+                fig.add_trace(go.Scatter3d(x=x_lin, 
+                                                y=y, 
+                                                z=interp_vals, 
+                                                mode='lines',
+                                                name='Wall',
+                                                line = dict(color=color[0])))
+                # 
+                fig.add_trace(go.Scatter3d(x= wall['x'],
+                                                y=np.full_like(wall['x'], 
+                                                wall['y'][0]), 
+                                                z=wall['z'], 
+                                                mode='markers',
+                                                marker=dict(size=4, color=color[0]),
+                                                showlegend=False))
+        int_soil = OBJECT.soil['soil']
+        for key, value in int_soil.items():
+            globals()[key] = value
 
-        if i % 2 == 0:  # Wall is along the y axis
-            y_y += [xnormal.min(),xnormal.max()]
-            y_x += [wall['x'].min()]*2
-            x_const = np.full(xnormal.shape[0], wall['x'].min())
-            fig.add_trace(go.Scatter3d(x=x_const,
-                                            y= xnormal,
+        x = OBJECT.soil['soil']['x']
+        y = OBJECT.soil['soil']['y']
+        z = OBJECT.soil['soil']['z']
+
+        fig.add_trace(
+            go.Surface(x=x, 
+                        y=y,
+                        z=z,
+                        colorscale='blackbody',
+                        opacity=0.5,
+                        contours = {
+                        "z": {"show": True},},
+                        showscale=True,
+                            ),
+        )
+    
+    if building:
+        # ------------------------------------ FIX ----------------------------------- #
+        bwalls, bfloors = building_traces(OBJECT).values()
+        x, y, z = bwalls.values()
+        x_bound, y_bound, h = bfloors.values()
+
+        wcolor = []
+        if OBJECT.dfltsm != None:
+            for z in z:strain = house[wall]['ltsm']['variables']['e_tot']
+            ecolor, cat = compute_param(strain)
+            wcolor.append(ecolor)
+            
+        fig.add_trace(go.Surface(x=x,
+                             y=y,
+                             z=z,
+                             colorscale=[[0, ecolor], [1, ecolor]],
+                             showscale=False))
+        for z in h:
+            fig.add_trace(go.Surface(x= x_bound,
+                                    y= y_bound,
+                                    z=z,
+                                    colorscale=[[0, 'rgba(0,0,255,0.5)'], [1, 'rgba(0,0,255,0.5)']], 
+                                    showscale=False))
+
+    if soil:
+        x_x =[]
+        x_y =[]
+        y_x = []
+        y_y = []
+        for i, wall in enumerate(house):
+            wall = house[wall]
+            w_param = wall['params']
+            
+            xnormal = w_param['ax']
+            x = w_param['x_gauss']
+            svmax = w_param['s_vmax']
+            xinflection = w_param['x_inflection']
+            z_curr = gaussian_shape(x,svmax,xinflection)
+
+            if i % 2 == 0:  # Wall is along the y axis
+                y_y += [xnormal.min(),xnormal.max()]
+                y_x += [wall['x'].min()]*2
+                x_const = np.full(xnormal.shape[0], wall['x'].min())
+                fig.add_trace(go.Scatter3d(x=x_const,
+                                                y= xnormal,
+                                                z=z_curr,
+                                                mode='lines',
+                                                name='Approximated subsidence profile',
+                                                line=dict(color=color[0], dash='dash')))
+            
+            else:  # Wall is along the x axis
+                x_x += [xnormal.max(),xnormal.min()]
+                x_y += [wall['y'].min()]*2
+                y_const = np.full(xnormal.shape[0], wall['y'].min())
+                fig.add_trace(go.Scatter3d(x= xnormal,
+                                            y=y_const,
                                             z=z_curr,
                                             mode='lines',
                                             name='Approximated subsidence profile',
                                             line=dict(color=color[0], dash='dash')))
-        
-        else:  # Wall is along the x axis
-            x_x += [xnormal.max(),xnormal.min()]
-            x_y += [wall['y'].min()]*2
-            y_const = np.full(xnormal.shape[0], wall['y'].min())
-            fig.add_trace(go.Scatter3d(x= xnormal,
-                                        y=y_const,
-                                        z=z_curr,
-                                        mode='lines',
-                                        name='Approximated subsidence profile',
-                                        line=dict(color=color[0], dash='dash')))
-    # ------------------------------- plot surfaces ------------------------------ #
-    fig.add_trace(
-        go.Surface(x=x_mesh,
-                y=y_mesh, 
-                z=z_qint, 
-                colorscale='solar', 
-                opacity=0.8,
-                showscale=False,
-                )
-    )
+    
+    
 
-    int_soil = OBJECT.soil['soil']
-    for key, value in int_soil.items():
-        globals()[key] = value
+    # ------------------------ Handle plot functionalities ----------------------- #
+    z_min = -min(OBJECT.house[wall]["z"].min() for wall in OBJECT.house)/100
+    z_rat = z_min / x_mesh.max()
+    y_rat = y_mesh.max() / x_mesh.max()
 
-    x = OBJECT.soil['soil']['x']
-    y = OBJECT.soil['soil']['y']
-    z = OBJECT.soil['soil']['z']
-
-    fig.add_trace(
-        go.Surface(x=x, 
-                    y=y,
-                    z=z,
-                    colorscale='blackbody',
-                    opacity=0.5,
-                    contours = {
-                        "z": {"show": True},},
-                    showscale=True,
-                        ),
-    )
     fig.update_layout(
         title='Approximated subsidence surface',
         scene=dict(
@@ -216,15 +265,24 @@ def subsidence(OBJECT):
             yaxis_title='Y [m]',
             zaxis_title='Z [mm]',
             aspectmode="manual",
-            aspectratio=dict(x=1*2, y=y_rat*3, z=z_rat*0.8),
+            aspectratio=dict(x=1*2, y=y_rat*3, z=z_rat*0.8)
         ),
-        margin=dict(r=5, b=5, l=5, t=0),  # Adjust the margins as needed
-        coloraxis_colorbar=dict(title = 'Disp Uz [mm]', yanchor= "top",x=0.2),
-        template = 'plotly_white',
-        width = 1800,
-        height = 750
-
+        coloraxis_colorbar=dict(
+            title='Disp Uz [mm]', 
+            yanchor="bottom", 
+            y=1, 
+            x=0,
+            len=0.5,  # 70% of the plot area
+            ticks="inside"
+        ),
+        showlegend = False,
+        # legend=dict(
+        #     yanchor="top",
+        #     y=0.3
+        # ),
+        template='plotly_white'
     )
+
     names = set()
     fig.for_each_trace(
         lambda trace:
@@ -322,4 +380,6 @@ def LTSM_plot(OBJECT):
         ])
 
         return app
+
+
         
