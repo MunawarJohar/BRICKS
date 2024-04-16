@@ -6,7 +6,7 @@ import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 import matplotlib.pyplot as plt
 from matplotlib.colors import LinearSegmentedColormap
-from house import gaussian_shape, interpolate_2d
+from tools.house import gaussian_shape
 
 def plot_surface(x_mesh, y_mesh, z_lin, z_qint):
 
