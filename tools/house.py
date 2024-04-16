@@ -22,23 +22,25 @@ class house:
         dfltsm (None): Placeholder for dfltsm information.
         """ 
         self.house = measurements
-        self.soil = None
-        self.gaussian = None
+        self.process = {}
+        self.soil = {}
+        self.gaussian = {}
         
         # --------------------------------- Geometry --------------------------------- #
         x_boundary = np.concatenate([self.house[wall]["x"] for wall in self.house])
         y_boundary = np.concatenate([self.house[wall]["y"] for wall in self.house])
         z_boundary = np.concatenate([self.house[wall]["z"] for wall in self.house])
         self.boundary = [x_boundary, y_boundary, z_boundary]
-        self.vertices = [[self.house[wall]['x'].min() if x else self.house[wall]['x'].max(), 
+        vertices = [[self.house[wall]['x'].min() if x else self.house[wall]['x'].max(), 
                             self.house[wall]['y'].min() if y else self.house[wall]['y'].max(), 
                             z] 
                             for wall in self.house
                             for x, y, z in itertools.product([0,10], repeat=3)] + [[0,0,0]] # get all vertices of the walls
-        self.vertices = list(set(tuple(vertex) for vertex in self.vertices))
+        vertices = list(set(tuple(vertex) for vertex in vertices))
+        self.vertices = sorted(vertices, key=lambda x: (x[2], x[1], x[0]))
+        
         # -------------------------------- Dataframes -------------------------------- #
-        self.gshapes = None
-        self.dfltsm = None
+        self.datadf = {}
 
     def interpolate(self):
         """
@@ -68,6 +70,7 @@ class house:
         z_qint = interpolate_2d(x_boundary, y_boundary, z_boundary, x_mesh, y_mesh, 'cubic')
         z_qint[int((36/70)*100):,int((89/108)*100):] = np.nan
         # -------------------------- Repartition into walls -------------------------- #
+        self.process['int'] = {}
         for i, wall in enumerate(self.house):
             list_x = self.get_range(self.house[wall], 'x')
             list_y = self.get_range(self.house[wall], 'y')
@@ -75,7 +78,7 @@ class house:
                 z_lin_flat = z_lin[:, list_x].flatten()
                 mask = np.isnan(np.array(z_qint[:,list_x]).flatten())
                 z_lin_flat[mask] = np.nan
-                self.house[wall]['int'] = { 'z_lin': np.array(z_lin_flat),
+                self.process['int'][wall] = { 'z_lin': np.array(z_lin_flat),
                                         'z_q': np.array(z_qint[:, list_x]).flatten(),
                                         'ax': y_mesh[:,0]}
 
@@ -83,7 +86,7 @@ class house:
                 z_lin_flat = z_lin[list_y,:].flatten()
                 mask = np.isnan(np.array(z_qint[list_y,:]).flatten())
                 z_lin_flat[mask] = np.nan
-                self.house[wall]['int'] = { 'z_lin': np.array(z_lin_flat), 
+                self.process['int'][wall] = { 'z_lin': np.array(z_lin_flat), 
                                         'z_q': np.array(z_qint[list_y,:]).flatten(),
                                         'ax': x_mesh[0,:] }
         self.soil = {'house':{'x':x_mesh,'y':y_mesh,'linear': z_lin, 'quadratic': z_qint}}
@@ -100,15 +103,15 @@ class house:
         Returns:
         None
         """
-
         x_soil = []
         y_soil = []
         z_soil = []
+        self.process["params"] = {}
 
         # ---------------------------- fit gaussian shapes --------------------------- #
         for i, wall in enumerate(self.house):
-            x_data = self.house[wall]['int']["ax"]
-            y_data = self.house[wall]['int']["z_lin"]
+            x_data = self.process['int'][wall]["ax"]
+            y_data = self.process['int'][wall]["z_lin"]
 
             # Drop nan values
             mask = np.isnan(y_data)
@@ -127,7 +130,7 @@ class house:
             x_gauss = np.concatenate((-x_gauss_2[::-1], x_gauss_2))
             x_normal = np.concatenate((x_data[index] - x_gauss_2[::-1], x_data[index] + x_gauss_2))
 
-            self.house[wall]["params"] = params = {
+            self.process['params'][wall] = params = {
                 "s_vmax": optimized_parameters[0], 
                 "x_inflection": optimized_parameters[1],
                 "x_gauss": x_gauss,
@@ -153,7 +156,56 @@ class house:
         z_gaussian = griddata((x, y), z, (X, Y), method='cubic')  
         self.soil['soil'] = {'x': X , 'y': Y, 'z': z_gaussian}
     
-    def LTSM(self, limit_line, height, eg_rat):
+    def SRI(self):
+        """
+        Calculates the Settlement related intensity (SRI) values for each wall in the house.
+
+        ## Returns:
+            dict: The updated object with the SRI values stored in the `SRI` attribute.
+        """
+        self.soil['sri'] = {} 
+        x_coords = {}
+        y_coords = {}
+        
+        for wall_num, key in enumerate(self.house):
+            wall = self.house[key]
+            w0 = wall['z'][0]
+            w1 = wall['z'][-1]
+            length = self.hwall_length(wall, wall_num)
+
+            # Get coordinates dynamically based on wall number
+            if wall_num % 2 == 0:
+                x_coords[wall_num] = wall['y']
+                y_coords[wall_num] = wall['x']
+            else:
+                x_coords[wall_num] = wall['x']
+                y_coords[wall_num] = wall['y']
+            # -------------------------- differential settlement ------------------------- #
+            s_vmax = self.process['params'][key]['s_vmax']
+            
+            xmin = x_coords[wall_num][np.argmin(wall['z'])]
+            x0 = x_coords[wall_num][0]
+            
+            x_svmax = xmin - x0
+            d_deflection = s_vmax - (w0 - w1 / length) * x_svmax
+            omega = np.arctan(d_deflection / length)
+            
+            # --------------------------------- rotation --------------------------------- #
+            wclose = np.max([w0, w1])
+            ind = np.where(wall['z'] == wclose)
+            xclose = x_coords[wall_num][ind] if wall_num % 2 == 0 else y_coords[wall_num][ind]
+            phi = float(s_vmax - w0 - w1 / length * xclose)
+            
+            # ---------------------------- angular distortion ---------------------------- #
+            beta = phi + omega
+
+            self.soil['sri'][key] = {'d_deflection': d_deflection,
+                        'omega': omega,
+                        'phi': phi,
+                        'beta': beta}     
+
+
+    def LTSM(self, limit_line,eg_rat):
         """
         Compute LTSM parameters and strain measures for a given wall.
 
@@ -175,22 +227,19 @@ class house:
         - xj (float): The xj value.
         - df (DataFrame): The input data.
         """
-        for wall in self.house:
-            i = list(self.house.keys()).index(wall) 
-            params = self.house[wall]['params']
+        self.process['ltsm'] = {'results': {}, 'values': {}, 'variables': {}}
+
+        for wall_ in self.house:
+            i = list(self.house.keys()).index(wall_)
+            wall = self.house[wall_] 
+            params = self.process['params'][wall_]
+            length = self.hwall_length(wall,i)
+            height = wall['height']
             
             W = gaussian_shape(params['x_gauss'], params['s_vmax'], params['x_inflection'])
             X = params['x_gauss']
             # -------------------------- Compute LTSM parameters ------------------------- #
-            if i % 2 == 0:  # Wall along y axis
-                xi = self.house[wall]['y'].min()
-                xj = self.house[wall]['y'].max()    
-            else:  # Wall along x axis
-                xi = self.house[wall]['x'].min()
-                xj = self.house[wall]['x'].max()
-            length = xj - xi
-
-            x_inflection = np.abs(self.house[wall]['params']['x_inflection'])
+            x_inflection = np.abs(params['x_inflection'])
             w_inflection = interp1d(X, W, kind = 'nearest')(x_inflection)
             w_current = interp1d(X, W, kind = 'nearest')(length)
             x_limit = np.abs(interp1d(W, X, kind = 'nearest')(limit_line))
@@ -205,7 +254,7 @@ class house:
             dl_sagging = dw_sagging / l_sagging
 
             ratio = height/ 2*1e3
-            uxy = (self.house[wall]['phi'][-1] - self.house[wall]['phi'][0])* 1000 * ratio
+            uxy = (wall['phi'][-1] - wall['phi'][0])* 1000 * ratio
             e_horizontal = uxy / length*1e3
             # -------------------------- Compute strain measures ------------------------- #
             e_bending_hogg = dl_hogging * (3 * lh_hogging / (1 / 4 * lh_hogging ** 2 + 1.2 * eg_rat))
@@ -222,28 +271,27 @@ class house:
             e_dt = e_horizontal / (2 + np.sqrt((e_horizontal / 2) ** 2 + e_shear ** 2))
             e_tot = np.max([e_bt, e_dt])
 
-            self.house[wall]['ltsm'] = {}
-            self.house[wall]['ltsm']['variables'] = {'e_tot': e_tot,
-                                        'e_bt': e_bt,
-                                        'e_dt': e_dt,
-                                        'e_bh': e_bending_hogg,
-                                        'e_bs': e_bending_sagg,
-                                        'e_sh': e_shear_hogg,
-                                        'e_ss': e_shear_sagg,
-                                        'e_h': e_horizontal,
-                                        'l_h': l_hogging,
-                                        'l_s': l_sagging,
-                                        'dw_h': dw_hogging,
-                                        'dw_s': dw_sagging,}
+            self.process['ltsm']['results'][wall_] = {'e_tot': e_tot,
+                                 'e_bt': e_bt,
+                                 'e_dt': e_dt,
+                                 'e_bh': e_bending_hogg,
+                                 'e_bs': e_bending_sagg,
+                                 'e_sh': e_shear_hogg,
+                                 'e_ss': e_shear_sagg,
+                                 'e_h': e_horizontal,
+                                 'l_h': l_hogging,
+                                 'l_s': l_sagging,
+                                 'dw_h': dw_hogging,
+                                 'dw_s': dw_sagging,}
             
-            self.house[wall]['ltsm']['params'] = {'x': X,
-                                        'w': W,
-                                        'xi': xi,
-                                        'xj': xj,
+            self.process['ltsm']['values'][wall_] = {'x': X,
+                                 'w': W,}
+            
+            self.process['ltsm']['variables'][wall_] = {
                                         'xinflection': x_inflection,
                                         'xlimit': x_limit,
                                         'limitline': limit_line,
-                                        'h': height} 
+                                        's_vmax': params['s_vmax']} 
     
     def find_root_iterative(self, guess, parameters, tolerance, step):
         output = gaussian_shape(guess, parameters[0],parameters[1])
@@ -251,7 +299,16 @@ class house:
             guess += step 
             output = gaussian_shape(guess, *parameters)
         return guess
-        
+    
+    def hwall_length(self,wall,i):
+        if i % 2 == 0:  # Wall along y axis
+            xi = wall['y'].min()
+            xj = wall['y'].max()    
+        else:  # Wall along x axis
+            xi = wall['x'].min()
+            xj = wall['x'].max()
+        return xj - xi
+
     def get_range(self, wall, key):
         start = int(wall[key].min())*10
         stop = int(wall[key].max())*10
@@ -265,18 +322,19 @@ class house:
                 return [99]
         return list(range(start, stop))
     
-    def process_dfs(self):
-        gshapes = [(i, 
-            [round(self.house[i]['params']["ax"].min(), 2), round(self.house[i]['params']['ax'].max(), 2)], 
-            round(self.house[i]['params']["s_vmax"], 2), 
-            round(self.house[i]['params']["x_inflection"], 2)) 
-            for i in self.house]
-        self.gshapes = pd.DataFrame(gshapes, columns=['Wall Name', 'Reference Length', 'S Vmax', 'X Inflection'])
+    def process_dfs(self, values):
+        """
+        Turn data dictionary into their respective dataframes
 
-        val_ltsm = [[wall] + list(self.house[wall]['ltsm']['variables'].values())
-                    for wall in self.house]
-        self.dfltsm = pd.DataFrame(val_ltsm, columns=['Wall Name', 'e_tot', 'e_bt', 'e_dt', 'e_bh','e_bs','e_sh','e_ss','e_h','l_h', 'l_s', 'dw_h', 'dw_s'])
+        Args:
+            values = List of dictionaries containing the data to be converted into a dataframe
 
+        """
+        for variable, dictionary in enumerate(values):
+            values = [round(values, 2) for values in dictionary.values()] 
+            cols = dictionary.keys()
+            df = pd.DataFrame([values], columns=cols)
+            self.datadf[f'{variable}'] = df
 
 def interpolate_2d(x_boundary, y_boundary, z_boundary, x_values, y_values, method):
     Z_interpolation = griddata((x_boundary, y_boundary), z_boundary, (x_values, y_values), method=method)
@@ -285,4 +343,5 @@ def interpolate_2d(x_boundary, y_boundary, z_boundary, x_values, y_values, metho
 def gaussian_shape(x, s_vmax, x_inflection):
     gauss_func = s_vmax * np.exp(-x**2/ (2*x_inflection**2))
     return gauss_func
+
         

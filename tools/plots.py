@@ -50,17 +50,17 @@ def wall_displacement(OBJECT):
     fig = go.Figure()
     colors = ['#3182bd', '#6baed6', '#9ecae1', '#c6dbef', '#eff3ff']  
     line_types = ['solid', 'dash']
-    house = OBJECT.house
+    process = OBJECT.process
 
-    for i, wall in enumerate(house):
+    for i, wall in enumerate(OBJECT.house):
         color_index = i % len(colors)
-        fig.add_trace(go.Scatter(x= house[wall]['int']['ax'], 
-                                y= house[wall]['int']["z_lin"], 
+        fig.add_trace(go.Scatter(x= process['int'][wall]['ax'], 
+                                y= process['int'][wall]["z_lin"], 
                                 mode='lines',
                                 line=dict(color=colors[color_index], dash=line_types[0]),
                                 name=f'Wall {i+1} Linear'))
-        fig.add_trace(go.Scatter(x= house[wall]['int']['ax'], 
-                                y= house[wall]['int']['z_q'], 
+        fig.add_trace(go.Scatter(x= process['int'][wall]['ax'], 
+                                y= process['int'][wall]['z_q'], 
                                 mode='lines',
                                 line=dict(color=colors[color_index], dash=line_types[1]),
                                 name=f'Wall {i+1} Quadratic'))
@@ -198,7 +198,7 @@ def subsidence(OBJECT, building = False, soil = False, deformation = True) -> go
 
         wcolor = []
         if OBJECT.dfltsm != None:
-            for z in z:strain = house[wall]['ltsm']['variables']['e_tot']
+            for z in z:strain = wltsm['results']['e_tot']
             ecolor, cat = compute_param(strain)
             wcolor.append(ecolor)
             
@@ -219,9 +219,9 @@ def subsidence(OBJECT, building = False, soil = False, deformation = True) -> go
         x_y =[]
         y_x = []
         y_y = []
-        for i, wall in enumerate(house):
-            wall = house[wall]
-            w_param = wall['params']
+        for i, key in enumerate(house):
+            wall = house[key]
+            w_param = OBJECT.process['params'][key]
             
             xnormal = w_param['ax']
             x = w_param['x_gauss']
@@ -314,13 +314,17 @@ def LTSM_plot(OBJECT):
         app = dash.Dash(__name__)
         figs = []
         h = 5
-        for wall in house:
-            strain = house[wall]['ltsm']['variables']['e_tot']
+        for i,wall in enumerate(house):
+            wltsm = OBJECT.process['ltsm']
+            strain = wltsm['results'][wall]['e_tot']
             ecolor, cat = compute_param(strain)
-            ltsm_params = house[wall]['ltsm']['params']
-            for key, value in ltsm_params.items():
-                globals()[key] = value
-            # ----------------------------------- PLOTS ---------------------------------- #
+            ltsm_params = wltsm['variables'][wall]
+            ltsm_values = wltsm['values'][wall]
+            param = [ltsm_params, ltsm_values]
+            for dict_ in param:
+                for key, value in dict_.items():
+                    globals()[key] = value
+                # ----------------------------------- PLOTS ---------------------------------- #
             fig = make_subplots(rows=2, cols=1,
                                 vertical_spacing=0.1,
                                 shared_xaxes=True,
@@ -351,11 +355,18 @@ def LTSM_plot(OBJECT):
                 
                 fig.add_trace(go.Scatter(x=[influence, influence], y=[w.min(), w.max()], mode='lines', name='Influence area',
                                         line=dict(color='black', width=1, dash='dashdot')), row=2, col=1)
-          
+
+            if i % 2 == 0:  # Wall is along the y axis
+                xi = OBJECT.house[wall]['y'].max()
+                xj = OBJECT.house[wall]['y'].min()
+            else:
+                xi = OBJECT.house[wall]['x'].max()
+                xj = OBJECT.house[wall]['x'].min()
+    
             fig.add_shape(
                 type="rect",
                 x0= 0 , y0=0,
-                x1= xj - xi, y1=h,
+                x1= xi - xj, y1=h,
                 fillcolor= ecolor,
                 row=1, col=1
             )
