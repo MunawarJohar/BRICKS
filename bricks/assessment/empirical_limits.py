@@ -1,4 +1,4 @@
-def define_limits():
+def empirical_limits():
     """
     This function defines the limits for different parameters that dictate the behavior and damage expected from subsiding masonry buildings.
     

@@ -1,10 +1,8 @@
 import numpy as np
 from scipy.interpolate import interp1d
 
-from tilted_bricks import house
-from tilted_bricks.assessment.empirical_limits import define_limits
-from tilted_bricks.house import gaussian_shape
-
+from .empirical_limits import empirical_limits
+from ..utils import gaussian_shape, hwall_length
 
 def evaluate_wall(wall_values, empirical_data):
     """
@@ -37,7 +35,7 @@ def evaluate_wall(wall_values, empirical_data):
             report.append(result)
     return report
 
-def EM_assessment(soil_data):
+def EM(soil_data: dict) -> dict:
     """
     Perform EM assessment on soil data.
 
@@ -54,7 +52,7 @@ def EM_assessment(soil_data):
     Returns:
     dict: A dictionary containing assessment reports for each wall ID.
     """
-    limits = define_limits()
+    limits = empirical_limits()
     all_reports = {}
     for wall_id, wall_values in soil_data['sri'].items():
         report = evaluate_wall(wall_values, limits)
@@ -62,7 +60,7 @@ def EM_assessment(soil_data):
     return all_reports
 
 
-def LTSM(walls, limit_line,eg_rat, save = False):
+def LTSM(object, limit_line, eg_rat = 11, save = False):
     """
     Compute LTSM parameters and strain measures for a given wall.
 
@@ -91,7 +89,7 @@ def LTSM(walls, limit_line,eg_rat, save = False):
         i = list(object.house.keys()).index(wall_)
         wall = object.house[wall_] 
         params = object.process['params'][wall_]
-        length = object.hwall_length(wall,i)
+        length = hwall_length(wall,i)
         height = wall['height']
         
         W = gaussian_shape(params['x_gauss'], params['s_vmax'], params['x_inflection'])
@@ -108,7 +106,7 @@ def LTSM(walls, limit_line,eg_rat, save = False):
 
         l_sagging = length * 1e3 - l_hogging
         lh_sagging = l_sagging / (height / 2)
-        dw_sagging = np.abs(W.min() + w_inflection) ## fix this
+        dw_sagging = np.abs(W.min() + w_inflection)
         dl_sagging = dw_sagging / l_sagging
 
         ratio = height/ 2*1e3
@@ -150,9 +148,7 @@ def LTSM(walls, limit_line,eg_rat, save = False):
                                     'xlimit': x_limit,
                                     'limitline': limit_line,
                                     's_vmax': params['s_vmax']} 
-    if save:
-        object.process['ltsm'] = dict_ 
-    else:
-        return dict_
+    
+    object.process['ltsm'] = dict_ 
             
 

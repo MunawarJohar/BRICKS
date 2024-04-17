@@ -1,12 +1,11 @@
+
 import numpy as np
-import dash
-from dash import dcc
-from dash import html
+from dash import Dash, dcc, html
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
-import matplotlib.pyplot as plt
 from matplotlib.colors import LinearSegmentedColormap
-from tilted_bricks.house import gaussian_shape
+
+from bricks.house import gaussian_shape
 
 def plot_surface(x_mesh, y_mesh, z_lin, z_qint):
 
@@ -311,7 +310,7 @@ def compute_param(strain_value):
 
 def LTSM_plot(object):        
         house = object.house
-        app = dash.Dash(__name__)
+        app = Dash(__name__)
         figs = []
         h = 5
         for i,wall in enumerate(house):
