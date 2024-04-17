@@ -6,7 +6,7 @@ import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 import matplotlib.pyplot as plt
 from matplotlib.colors import LinearSegmentedColormap
-from tools.house import gaussian_shape
+from tilted_bricks.house import gaussian_shape
 
 def plot_surface(x_mesh, y_mesh, z_lin, z_qint):
 
@@ -309,13 +309,13 @@ def compute_param(strain_value):
     return hex_color, cat[ind]
     
 
-def LTSM_plot(OBJECT):        
-        house = OBJECT.house
+def LTSM_plot(object):        
+        house = object.house
         app = dash.Dash(__name__)
         figs = []
         h = 5
         for i,wall in enumerate(house):
-            wltsm = OBJECT.process['ltsm']
+            wltsm = object.process['ltsm']
             strain = wltsm['results'][wall]['e_tot']
             ecolor, cat = compute_param(strain)
             ltsm_params = wltsm['variables'][wall]
@@ -357,11 +357,11 @@ def LTSM_plot(OBJECT):
                                         line=dict(color='black', width=1, dash='dashdot')), row=2, col=1)
 
             if i % 2 == 0:  # Wall is along the y axis
-                xi = OBJECT.house[wall]['y'].max()
-                xj = OBJECT.house[wall]['y'].min()
+                xi = object.house[wall]['y'].max()
+                xj = object.house[wall]['y'].min()
             else:
-                xi = OBJECT.house[wall]['x'].max()
-                xj = OBJECT.house[wall]['x'].min()
+                xi = object.house[wall]['x'].max()
+                xj = object.house[wall]['x'].min()
     
             fig.add_shape(
                 type="rect",
