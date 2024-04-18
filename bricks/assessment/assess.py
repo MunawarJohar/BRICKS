@@ -35,7 +35,7 @@ def evaluate_wall(wall_values, empirical_data):
             report.append(result)
     return report
 
-def EM(soil_data: dict) -> dict:
+def EM(soil_data: dict, limits = empirical_limits) -> dict:
     """
     Perform EM assessment on soil data.
 
@@ -52,7 +52,6 @@ def EM(soil_data: dict) -> dict:
     Returns:
     dict: A dictionary containing assessment reports for each wall ID.
     """
-    limits = empirical_limits()
     all_reports = {}
     for wall_id, wall_values in soil_data['sri'].items():
         report = evaluate_wall(wall_values, limits)
@@ -86,7 +85,7 @@ def LTSM(object, limit_line, eg_rat = 11, save = False):
     dict_ = {'results': {}, 'values': {}, 'variables': {}}
 
     for wall_ in object.house:
-        i = list(object.house.keys()).index(wall_)
+        i = list(object.house.keys()).index(wall_) + 1
         wall = object.house[wall_] 
         params = object.process['params'][wall_]
         length = hwall_length(wall,i)
