@@ -4,29 +4,43 @@ from scipy.interpolate import interp1d
 from .empirical_limits import empirical_limits
 from ..utils import gaussian_shape, hwall_length
 
-def evaluate_wall(wall_values, empirical_data):
-    report = []
-    for key, test_data in empirical_data.items():
-        current_value = wall_values.get(key, None)
-        if current_value is not None:
-            # Find the highest limit that the current value does not exceed
-            limits = test_data['limits']
-            for i, limit in enumerate(limits):
-                if current_value <= limit:
-                    description_index = i
-                    break
-            else:
-                # If value exceeds all limits, use the last description
-                description_index = len(limits) - 1
+def evaluate_wall(wall_values, empirical_limits):
+    """
+    Evaluate the wall based on the given wall values and empirical limits.
 
-            report.append({
-                'source': test_data['source'],
-                'assessment': test_data['descriptions'][description_index],
-                'value': current_value,
-                'limit': limits[description_index],
-                'comment': f"Assessment based on {key}"
-            })
-    return report
+    Args:
+        wall_values (dict): A dictionary containing the values of different parameters for the wall.
+        empirical_limits (dict): A dictionary containing the empirical limits for different parameters.
+
+    Returns:
+        list: A list of assessment reports for each parameter.
+
+    """
+    wall_report = {}
+    for parameter, parameter_test in empirical_limits.items():
+        param_report = []
+        current_value = wall_values.get(parameter, None)
+        
+        if current_value is not None:
+            for test in parameter_test:
+                limits = test['limits']
+                for i, limit in enumerate(limits):
+                    if current_value <= limit:
+                        description_index = i
+                        break
+                else:
+                    description_index = len(limits) - 1
+
+                param_report.append({ 
+                    'source': test['source'],
+                    'assessment': test['description'][description_index],
+                    'value': current_value,
+                    'limit': limits[description_index],
+                    'evaluation': test['degree'][description_index],
+                    'comment': f"Assessment based on {parameter}"
+                })
+        wall_report[parameter] = param_report 
+    return wall_report
 
 def EM(soil_data: dict, limits = None) -> dict:
     """

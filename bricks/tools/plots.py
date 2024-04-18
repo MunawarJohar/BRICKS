@@ -2,6 +2,7 @@
 import numpy as np
 from dash import Dash, dcc, html
 import plotly.graph_objects as go
+import plotly.figure_factory as ff
 from plotly.subplots import make_subplots
 from matplotlib.colors import LinearSegmentedColormap
 
@@ -305,7 +306,70 @@ def compute_param(strain_value):
     b_int = int(b * 255)
     hex_color = "#{:02X}{:02X}{:02X}".format(r_int, g_int, b_int)
     return hex_color, cat[ind]
-    
+
+def EM_plot(report):
+    app = Dash(__name__)
+
+    all_sources = {src['source'] for wall in report for param in report[wall] for src in report[wall][param]}
+    sources = sorted(all_sources)
+    walls = list(report.keys())
+    parameters = list(next(iter(report.values())).keys())
+
+    figs = []  
+    for wall in walls:
+        data_matrix = []
+        wall_param_labels = []
+        
+        for parameter in parameters:
+            row = []
+            current_sources = {item['source']: item['value'] for item in report[wall][parameter]}
+            for source in sources:
+                row.append(current_sources.get(source, None))  
+            data_matrix.append(row)
+            wall_param_labels.append(f"{parameter}")  
+
+        data_matrix = np.array(data_matrix, dtype=np.float32)  
+        annotations = np.vectorize(lambda x: f"<b>{x:.2f}</b>" if x is not None else "")(data_matrix)
+
+        fig = ff.create_annotated_heatmap(
+            z=data_matrix,
+            x=sources,
+            y=wall_param_labels,
+            annotation_text=annotations,
+            colorscale='RdYlGn_r',  # Red to Green color scale, reversed
+            showscale=True
+        )
+
+        # Update the layout for each figure to enhance readability
+        fig.update_layout(
+            title=f'Test Values Heatmap for {wall}',
+            xaxis=dict(title='Test Source',
+                        side = 'bottom'),
+            yaxis=dict(title='SRI Parameter'),
+            xaxis_showgrid=True,
+            yaxis_showgrid=True,
+            yaxis_autorange='reversed',
+            template='plotly_white'
+        )
+
+        figs.append(fig)
+
+    # Create tabs, each containing a graph for a wall
+    tab_heading_style = {
+        'fontFamily': 'Arial, sans-serif',
+        'color': '#3a4d6b'
+    }
+
+    tabs_content = [dcc.Tab(label=f"{wall}", children=[dcc.Graph(figure=fig)], style=tab_heading_style, selected_style=tab_heading_style) for wall, fig in zip(walls, figs)]
+
+    app.layout = html.Div([
+        dcc.Tabs(children=tabs_content)
+    ])
+
+    if __name__ == '__main__':
+        app.run_server(debug=False)
+
+    return app
 
 def LTSM_plot(object):        
         house = object.house

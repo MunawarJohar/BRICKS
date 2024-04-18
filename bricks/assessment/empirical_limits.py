@@ -16,66 +16,79 @@ def empirical_limits():
     - 'description': A description of the limit.
     - 'source': The source of the limit.
     """
-    literature = {
+    return {
         'beta': [
+            {'source': 'Boscardin & Cording (1989)', 
+                'limits': [0,1e-3,1.5e-3,3.25e-3,6.5e-3,3e-3,1e3],
+                'description': ['Negligible damage',
+                                'Very slight',
+                                'Slight',
+                                'Moderate',
+                                'Severe',
+                                'Very severe'],
+                'degree': [0,0.2,0.4,0.6,0.8,1]},
+
             {'source': 'Skempton & McDonald (1956)', 
-                'limits': [0,
-                           3.33e-3,
-                           6.66e-3],
+                'limits': [0,3.33e-3,6.66e-3],
                 'description': ['No damage',
                                 'Structural damage in beams or columns',
-                                'Cracking in wall panels']},
+                                'Cracking in wall panels'],
+                'degree': [0,0.5,1.0,0.6,0.8,1]  },
+
             {'source': 'Bjerrum (1963)', 
-                'limits': [0,
-                           2e-3,
-                           3.33e-3,
-                           6.66e-3],
+                'limits': [0,2e-3,3.33e-3,6.66e-3],
                 'description': ['No damage',
                                 'Cracking',
                                 'Severe cracking in panel walls',
-                                'Serious cracking in panel walls and brick walls',]},
-            {'source': 'Polshin & Tokar (1957)', 
-                'limits': [0,
-                           5e-3],
-                'description': ['No damage',
-                                'First visible cracking to no infill walls']},
-            {'source': 'Wood (1958)', 
-                'limits': [0,
-                           2.2e-3],
-                'description': ['No damage',
-                                'First visible cracking to brick panels and walls']},
-            {'source': 'Bozuzuk (1962)', 
-                'limits': [0,
-                           1e-3],
-                'description': ['No damage',
-                                'Cracking of clay brick units with mortar']},
-            {'source': 'Meyerhof (1953)', 
-                'limits': [0,
-                           2.5e-3],
-                'description': ['No damage',
-                                'Cracking']},]
-            
-        # ],
-        # 'max_diff_settlement': [
-        #     {'limit': 0.032, 'description': "In sand (all types of foundation)", 'source': "Generic Source"},
-        #     {'limit': 0.045, 'description': "In clay (all types of foundation)", 'source': "Generic Source"},
-        # ],
-        # 'max_settlement': [
-        #     {'limit': 0.051, 'description': "Isolated foundations in sand soil", 'source': "Generic Source"},
-        #     {'limit': 0.076, 'description': "Isolated foundations in clay soil", 'source': "Generic Source"},
-        #     # Include other limits similarly
-        # ],
-        # 'drat': [
-        #     {'limit': 0.0003, 'description': "for L/H ≤ 2 Sagging", 'source': "Polshin & Tokar (1957)"},
-        #     {'limit': 0.001, 'description': "for L/H = 8 Sagging", 'source': "Polshin & Tokar (1957)"},
-        # ],
-        # 'omega': [
-        #     {'limit': 166, 'description': "Good condition limit", 'source': "IGWR (2009), Rotterdam Municipality"},
-        # ],
-        # 'phi': [
-        #     {'limit': 0.002, 'description': "No damage", 'source': "CUR (1996), Dutch regulations"},
-        #     {'limit': 0.0033, 'description': "Structural Damage", 'source': "CUR (1996), Dutch regulations"},
-        # ]
-    }
+                                'Serious cracking in panel walls and brick walls',],
+                'degree': [0,0.75,1.0,1.0]},
 
-    return literature
+            {'source': 'Polshin & Tokar (1957)', 
+                'limits': [0,5e-3],
+                'description': ['No damage',
+                                'First visible cracking to no infill walls'],                                
+                'degree': [0,0.5,]},
+
+            {'source': 'Wood (1958)', 
+                'limits': [0,2.2e-3],
+                'description': ['No damage',
+                                'First visible cracking to brick panels and walls'],
+                'degree': [0,0.5,]},
+
+            {'source': 'Bozuzuk (1962)', 
+                'limits': [0,1e-3],
+                'description': ['No damage',
+                                'Cracking of clay brick units with mortar'],
+                'degree': [0,0.5,]},
+
+            {'source': 'Meyerhof (1953)', 
+                'limits': [0,2.5e-3],
+                'description': ['No damage',
+                                'Cracking'],
+                'degree': [0,1.0]},],
+    
+        'dSmax': [
+            {'source': "Skemptom & McDonald (1956)", 
+                'limits': [0,0.032], 
+                'description': ['No damage', 'Damage in sand (all types of foundation)'],
+                'degree': [0, 1.0]},
+            {'source': "Skemptom & McDonald (1956)",
+                'limits': [0,0.045],
+                'description': ['No damage', 'Damage in clay (all types of foundation)'],
+                'degree': [0, 1.0]}
+                ],
+        
+        'phi': [
+            {'source': "CUR (1996)", 
+                'limits': [0,2e-3,3.3e-3,10e-3], 
+                'description': ['No damage','Aesthetic damage','Structural damage','Risk for residents'],
+                'degree': [0, 0.6,0.8,1.0]},
+                ],
+
+        'omega': [
+            {'source': "IGWR (2009)", 
+                'limits': [0,1/66,1/50,1/33], 
+                'description': ['No damage','Acceptable damage','Small damage','Considerable damage'],
+                'degree': [0, 0.35,0.5,0.75]},
+                ],
+    }
