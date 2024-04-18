@@ -71,7 +71,6 @@ def wall_displacement(OBJECT):
                     template='plotly_white',)
     fig.show()
 
-
 def building_traces(OBJECT):
     
     x_bound = []
@@ -312,18 +311,24 @@ def LTSM_plot(object):
         house = object.house
         app = Dash(__name__)
         figs = []
-        h = 5
+        
         for i,wall in enumerate(house):
+            # Unpack values
+            h = object.house[wall]['height']
+            int = object.process['int'][wall]
+
             wltsm = object.process['ltsm']
             strain = wltsm['results'][wall]['e_tot']
-            ecolor, cat = compute_param(strain)
             ltsm_params = wltsm['variables'][wall]
             ltsm_values = wltsm['values'][wall]
+            
             param = [ltsm_params, ltsm_values]
             for dict_ in param:
                 for key, value in dict_.items():
                     globals()[key] = value
-                # ----------------------------------- PLOTS ---------------------------------- #
+            
+            #Produce plots
+            ecolor, cat = compute_param(strain)
             fig = make_subplots(rows=2, cols=1,
                                 vertical_spacing=0.1,
                                 shared_xaxes=True,
@@ -331,16 +336,20 @@ def LTSM_plot(object):
                                 x_title='Length [m]',
                                 y_title='Height [m,mm]',
                                 subplot_titles=('Relative Wall position', 'Subsidence profile'))
+            
+            # Subsidence profile trace
+            # fig.add_trace(go.Scatter(x= int['ax'][::-1], 
+            #                         y= int["z_lin"],  
+            #                         mode='lines', 
+            #                         name='Subsidence profile'), 
+            #                         row=2, col=1)
             fig.add_trace(go.Scatter(x=x, 
                                     y=w, 
                                     mode='lines', 
-                                    name='Subsidence profile'), 
+                                    name='Gaussian profile aproximation'), 
                                     row=2, col=1)
-            fig.add_trace(go.Scatter(x=x, 
-                                    y=np.full(len(x), limitline), 
-                                    mode='lines', name=f'Limit Line [{limitline} mm]',
-                                    line=dict(color='black', dash='dash', width=1)), 
-                                    row=2, col=1)
+
+            # Inflection traces
             for z in [-xinflection, xinflection]:
                 fig.add_trace(go.Scatter(x=[z, z], y=[0, h], mode='lines', name='Inflection point',
                                         line=dict(color='black', width=1, dash='dash')), row=1, col=1)
@@ -354,6 +363,11 @@ def LTSM_plot(object):
                 
                 fig.add_trace(go.Scatter(x=[influence, influence], y=[w.min(), w.max()], mode='lines', name='Influence area',
                                         line=dict(color='black', width=1, dash='dashdot')), row=2, col=1)
+            fig.add_trace(go.Scatter(x=x, 
+                                y=np.full(len(x), limitline), 
+                                mode='lines', name=f'Limit Line [{limitline} mm]',
+                                line=dict(color='black', dash='dash', width=1)), 
+                                row=2, col=1)
 
             if i % 2 == 0:  # Wall is along the y axis
                 xi = object.house[wall]['y'].max()
@@ -362,6 +376,7 @@ def LTSM_plot(object):
                 xi = object.house[wall]['x'].max()
                 xj = object.house[wall]['x'].min()
     
+            # Plot wall shape
             fig.add_shape(
                 type="rect",
                 x0= 0 , y0=0,
@@ -372,7 +387,8 @@ def LTSM_plot(object):
             fig.update_layout(title=f'LTSM {wall} | e_tot = {strain:.2e} DL = {cat}',
                             legend=dict(traceorder="normal"), 
                             template='plotly_white')
-            # ---------------------- Remove duplicate legend entries --------------------- #
+            
+            #Remove duplicate legend labels
             names = set()
             fig.for_each_trace(
                 lambda trace:

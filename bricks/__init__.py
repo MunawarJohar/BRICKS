@@ -1,3 +1,3 @@
 from .house import house  
-from .assessment.assess import LTSM, EM
+from .assessment import LTSM, EM, empirical_limits
 from .tools import plots

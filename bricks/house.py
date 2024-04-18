@@ -189,9 +189,9 @@ class house:
 
             dx_svmax = np.abs(xmin - x0)
             d_deflection = s_vmax - (w0 - w1 / length) * dx_svmax
-        
             #Rounding to avoid floating point errors in conditions
             d_deflection = round(d_deflection,3) 
+
             omega = np.arctan((w0 - w1) / length)
 
             # --------------------------------- rotation --------------------------------- #
@@ -204,10 +204,10 @@ class house:
             # ---------------------------- angular distortion ---------------------------- #
             beta = phi + omega if d_deflection != 0 else 0
 
-            self.soil['sri'][key] = {'S_max': abs(min(wall['z'])),
-                                'dS_max': abs(s_vmax),
+            self.soil['sri'][key] = {'Smax': abs(min(wall['z'])),
+                                'dSmax': abs(s_vmax),
                                 'D/L': abs(s_vmax)/length,
-                                'D_deflection': abs(d_deflection),
+                                'drat': abs(d_deflection),
                                 'omega': abs(omega),
                                 'phi': abs(phi),
                                 'beta': abs(beta)}  

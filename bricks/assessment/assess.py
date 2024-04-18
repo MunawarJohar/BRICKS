@@ -5,39 +5,32 @@ from .empirical_limits import empirical_limits
 from ..utils import gaussian_shape, hwall_length
 
 def evaluate_wall(wall_values, empirical_data):
-    """
-    Evaluates the wall values against the empirical data and generates a report.
-
-    Args:
-        wall_values (dict): A dictionary containing the wall values.
-        empirical_data (dict): A dictionary containing the empirical data.
-
-    Returns:
-        list: A list of dictionaries representing the assessment report. Each dictionary contains the following keys:
-            - 'source': The source of the test.
-            - 'assessment': The assessment result, either "Pass" or "Fail".
-            - 'value': The current value being evaluated.
-            - 'limit': The limit for the test.
-            - 'comment': A comment describing the test.
-    """
     report = []
-    for key, tests in limits.items():
-        current_value = wall_data[key]
-        for test in tests:
-            passed = current_value <= test['limit']
-            result = {
-                'source': test['source'],
-                'assessment': "Pass" if passed else "Fail",
+    for key, test_data in empirical_data.items():
+        current_value = wall_values.get(key, None)
+        if current_value is not None:
+            # Find the highest limit that the current value does not exceed
+            limits = test_data['limits']
+            for i, limit in enumerate(limits):
+                if current_value <= limit:
+                    description_index = i
+                    break
+            else:
+                # If value exceeds all limits, use the last description
+                description_index = len(limits) - 1
+
+            report.append({
+                'source': test_data['source'],
+                'assessment': test_data['descriptions'][description_index],
                 'value': current_value,
-                'limit': test['limit'],
-                'comment': test['description']
-            }
-            report.append(result)
+                'limit': limits[description_index],
+                'comment': f"Assessment based on {key}"
+            })
     return report
 
-def EM(soil_data: dict, limits = empirical_limits) -> dict:
+def EM(soil_data: dict, limits = None) -> dict:
     """
-    Perform EM assessment on soil data.
+    Performs an assessment on the building through available Empirical methods.
 
     Parameters:
     soil_data (dict): A dictionary containing soil data which has the following structure
@@ -53,7 +46,11 @@ def EM(soil_data: dict, limits = empirical_limits) -> dict:
     dict: A dictionary containing assessment reports for each wall ID.
     """
     all_reports = {}
-    for wall_id, wall_values in soil_data['sri'].items():
+
+    if limits is None:
+        limits = empirical_limits()
+
+    for wall_id, wall_values in soil_data.items():
         report = evaluate_wall(wall_values, limits)
         all_reports[wall_id] = report
     return all_reports
