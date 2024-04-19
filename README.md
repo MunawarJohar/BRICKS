@@ -17,7 +17,7 @@ In the Netherlands, it has been customary for engineering consultants to perform
 
 ## Perform your own assessment
 
-### 1. Instantiate your own `HOUSE`
+### 1. Instantiate your own `HOUSE` and calculate its characteristic values
 
 From your building assessment report of self taken measurements you only require to define the basic geometry and continous layout of your building. With it is necessary to provide the subsidence measurements and their location continuously along the wall.
 
@@ -33,6 +33,82 @@ walls = {
 
 ijsselsteinseweg = house(measurements = walls)
 ```
+Estimate the Soil related intensity factors through the SRI method:
+
+```python
+ijsselsteinseweg.SRI()
+```
+which produces the following output,
+
+|     | Smax | dSmax |       D/L |   drat |   omega |     phi |     beta |
+|-----|------|-------|-----------|--------|---------|---------|----------|
+| **0** |  152 |   152 | 21.714286 |  4.000 | 1.524776| 1.524776| 3.049552 |
+| **1** |  188 |    36 |  4.044944 |  7.202 | 1.328434| 1.328434| 2.656867 |
+| **2** |  188 |    39 | 11.470588 |  0.000 | 1.483837| 1.483837| 0.000000 |
+| **3** |  149 |    11 |  5.789474 |  0.000 | 1.399757| 1.399757| 0.000000 |
+| **4** |  138 |    34 |  9.444444 |  0.000 | 1.465307| 1.465307| 0.000000 |
+| **5** |  104 |   104 |  9.629630 | 10.704 | 1.467321| 1.467321| 2.934642 |
+
+**Table 1:** Settlement related intensity factors
+
+Aproximate and reconstruct the displacement surface of the building by first interpolating the buildings displacement field `house.interpolate()` then fit your prefered charateristic soil displacement equation by default it makes use of `guassian_shape`:
+
+```python
+def gaussian_shape(x, s_vmax, x_inflection):
+    gauss_func = s_vmax * exp(-x**2/ (2*x_inflection**2))
+    return gauss_func
+```
+then use the `house.fit_function` method to estimate the nearby soil subsidence surface.
+
+```python
+ijsselsteinseweg.fit_function(i_guess = 1, tolerance = 1e-2, step = 1) # Fit gaussian shapes to walls
+plots.subsidence(ijsselsteinseweg, building = False, soil= True, deformation= True)
+```
+The surface can the be visualised as follows,
+
+![Soil subsidence surface](_data\fig\subsidence_surface.png)
+
+**Figure 5:** Visualised aproximated soil surface for Ijsselsteinseweg 77.
+
+### 2. Perform your preliminary assessment of your building
+
+The bricks module currently provides two main functionalities to assess a building, one is through a compilation of empirical methods i.e empirical correlations that have been determined by researchers linking the amount of damage expected in a building due to its current situation. And secondly the LTSM a elementary structural mechanical aproach the displacement and strains of the building subject to a subsidence distribution.
+
+### 2.1 Assesment against empirical methods
+
+ Firstly it asseses the buildings vulnerability through a compilation of state-of-the-art limits gathered from different sources `empirical_limits.py` which are then evaluated through the Empirical methods 'EM()' function against a dictionary of SRI parameters. When making use of the 'house' class and having made use of the `SRI()` method the function can be called as follows, 
+
+```python
+ijsselsteinseweg.SRI()
+report = EM(ijsselsteinseweg.soil['sri'])
+app = plots.EM_plot(report)
+
+app.run_server(debug=False)
+```
+The output will be a report with the assessment state source and SRI parameter evaluated. As can be seen above the making use of `bricks.tools` the `EM_plot()` can be called which will help you visualise the assesments reports. An example of the above is the following,
+
+![EM Assesment](_data\fig\EM_assess.png)
+**Figure 6:** Visualisation matrix of results from different assessment methods
+
+### 2.1 Assesment through Burland & Wroth (1974) -> `LTSM`
+
+The second main available assesment method is the LTSM. This method was devised by Burland & Wroth (1974) and was then expanded by other researchers such as Boscardin & Cording (1989). This method schematises a building or wall as an equivalent masonry beam and a Timoschenko beam formulation from which the subsidence through is applied. From here onwards the hogging and sagging regions of the before estimated gaussian settlement troughs are calculated and the estimation of the building strains is performed. 
+
+|       |   e_tot |    e_bt | e_dt |    e_bh |    e_bs |    e_sh |    e_ss | e_h |        l_h |        l_s |      dw_h |      dw_s |
+|-------|---------|---------|------|---------|---------|---------|---------|-----|------------|------------|-----------|-----------|
+| **Wall 1** | 0.022297| 0.022297|   0.0| 0.003138| 0.022297| 0.021860| 0.008913|   0 | 3947.199407| 3052.800593|  69.843047| 218.245786|
+| **Wall 2** | 0.017079| 0.017079|   0.0| 0.000000| 0.017079| 0.000000| 0.005739|   0 |  106.151112| 8793.848888|   0.000000| 244.614170|
+| **Wall 4** | 0.028682| 0.028682|   0.0| 0.000000| 0.028682| 0.000000| 0.011363|   0 |    0.000000| 3400.000000|  38.988505| 285.019065|
+| **Wall 4** | 0.019284| 0.019284|   0.0| 0.000000| 0.019284| 0.000000| 0.007900|   0 |    0.000000| 1900.000000|  40.373108| 181.409967|
+| **Wall 5** | 0.021176| 0.021176|   0.0| 0.000000| 0.021176| 0.000000| 0.008344|   0 |    0.000000| 3600.000000|  20.754595| 212.411919|
+| **Wall 6** | 0.013452| 0.013452|   0.0| 0.002134| 0.013452| 0.009436| 0.005150|   0 | 6218.698494| 4581.301506|  48.319648| 142.131796|
+
+**Table 2:** Results from LTSM on building
+
+
+![EM Assesment](_data\fig\LTSM_assess.png)
+**Figure 7:** Visualisation of LTSM
+
 
 ## Breakdown of the `bricks` module and the repository
 

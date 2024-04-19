@@ -94,7 +94,7 @@ class house:
                                         'ax': x_mesh[0,:] }
         self.soil = {'house':{'x':x_mesh,'y':y_mesh,'linear': z_lin, 'quadratic': z_qint}}
     
-    def fit_gaussian(self, i_guess, tolerance, step):
+    def fit_function(self, i_guess, tolerance, step, function = gaussian_shape):
         """
         Fits Gaussian shapes to the data points in the house object and interpolates the shapes.
 
@@ -126,7 +126,7 @@ class house:
             x_gauss = np.concatenate((-x_data[:index+1][::-1], x_data[:index]))
             x_data = np.concatenate((x_data[:index+1], x_data[index] + x_data[:index+1]))
 
-            optimized_parameters, params_cov = curve_fit(f= gaussian_shape, xdata=x_gauss, ydata=y_normal) 
+            optimized_parameters, params_cov = curve_fit(f= function, xdata=x_gauss, ydata=y_normal) 
             guess = find_root_iterative(i_guess, optimized_parameters, tolerance, step)
 
             x_gauss_2 = np.linspace(0, guess, 50) 
