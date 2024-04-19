@@ -16,19 +16,22 @@ In the Netherlands it has been customary for engineering consultants to perform 
 |**Figure 3:** Exemplary skew measurement diagram | **Figure 4:** Masonry structure accommodating to a subsidence surface |
 
 
-## Breakdown of the 'bricks' module and the repository
+## Breakdown of the `bricks` module and the repository
 
-Bricks is a in development module which aims to help engineers and homeowners in the netherlands be able to evluate the vulnerability of their houses through accessible easy to use tools. The module has threee main components.
+Bricks is a in development module which aims to help engineers and homeowners in the netherlands be able to evaluate the vulnerability of their houses through accessible easy to use tools. The module has three main components.
 
-1. **'house'** : A class which allows you to create an object of your own house and also provides the basic functionalities to process your building's soil and structural characteristic values relevant to the posterior analysis.
-2. **'bricks.assessment'** : Sub-module that contains the state-of-the-art analysis techniques relevant to perform a pre-emptive assesment of your structure. The current available methods available 'assess.py' are the LTSM and a compilation of emperically determined thresholds of a structures KPI's. Although effective it is important to note some of these tools lack the precission of other FEM counterparts and aim to serve as tools for educated decision making for accessible vulnerability assesment or to determine the neccessity of more precise assesment methods to be employed.
-3. **'bricks.tools'**: Sub-module that contains primarily the tools to visualise the different assesment methods performed and to visualise the current state of your building.  
+1. **`house`** : A class which allows you to create an object of your own house and also provides the basic functionalities to process your building's soil and structural characteristic values relevant to the posterior analysis.
+2. **`bricks.assessment`** : Sub-module that contains the state-of-the-art analysis techniques relevant to perform a pre-emptive assessment of your structure. The current available methods available 'assess.py' are the LTSM and a compilation of empirically determined thresholds of a structures KPI's. Although effective it is important to note some of these tools lack the precission of other FEM counterparts and aim to serve as tools for educated decision making for accessible vulnerability assessment or to determine the necessity of more precise assessment methods to be employed.
+3. **`bricks.tools`**: Sub-module that contains primarily the tools to visualise the different assessment methods performed and to visualise the current state of your building.  
 
-In addition the main directory contains 'Ijsselsteinseweg 77.ipynb' a exemplary notebook which illustrates how to perform the assessment of your building and how to utilise the visualisation tools available from 'bricks'. This is carried out through analysis of a real world scenario.  
+In addition the main directory contains `Ijsselsteinseweg 77.ipynb` a exemplary notebook which illustrates how to perform the assessment of your building and how to utilise the visualisation tools available from 'bricks'. This is carried out through analysis of a real world scenario.  
 
-### 1. Instantiate your own 'HOUSE'
 
-From your building assessment report of self taken measurements you only require to define the basic geometry and continous layout of your building. With it is neccessary to provide the subsidence measurements and their location continous along the wall.
+## Perform your own assessment
+
+### 1. Instantiate your own `HOUSE`
+
+From your building assessment report of self taken measurements you only require to define the basic geometry and continous layout of your building. With it is necessary to provide the subsidence measurements and their location continous along the wall.
 
 ```python
 walls = {
