@@ -5,7 +5,7 @@ Due to the topological and geological nature of the Netherlands many areas aroun
 > <span style="font-size: larger;"><B>Project Objective:</B></span> To develop and asses available methods in the evaluation of structural damage to masonry structures undergoing urban shallow subsidence<br>
 > The development and analysis of analytical and numerical solutions, to preemptively determine the vulnerability of structures.
 
-|<img src="_data\fig\building_model.svg" alt="Building Numerical modelling scheme" style=object-fit: cover"> | <img src="_data\fig\buildingdamage.svg" alt="Masonry structure accommodating to a subsidence surface" style=object-fit: cover">|
+|<img src="_data\fig\building_model.svg" alt="Building Numerical modelling scheme" style="object-fit: cover"> | <img src="_data\fig\buildingdamage.svg" alt="Masonry structure accommodating to a subsidence surface" style="object-fit: cover">|
 |-------------------------------------------------------------------------------------------------------------------------|-----------------------------------------------------------------------------------------------------------------------------------------|
 |**Figure 1:** Building Numerical modelling scheme | **Figure 2:** Masonry structure accommodating to a subsidence surface |
 
