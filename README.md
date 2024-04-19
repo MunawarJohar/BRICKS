@@ -5,13 +5,13 @@ Due to the topological and geological nature of the Netherlands many areas aroun
 > <span style="font-size: larger;"><B>Project Objective:</B></span> To develop and asses available methods in the evaluation of structural damage to masonry structures undergoing urban shallow subsidence<br>
 > The development and analysis of analytical and numerical solutions, to preemptively determine the vulnerability of structures.
 
-|<img src="_data\fig\building_model.svg" alt="Building Numerical modelling scheme" style="width: 35%; object-fit: cover;"> | <img src="_data\fig\buildingdamage.svg" alt="Masonry structure accommodating to a subsidence surface" style="width: 65%; object-fit: cover;">|
+|<img src="_data\fig\building_model.svg" alt="Building Numerical modelling scheme" style=object-fit: cover;"> | <img src="_data\fig\buildingdamage.svg" alt="Masonry structure accommodating to a subsidence surface" style=object-fit: cover;">|
 |-------------------------------------------------------------------------------------------------------------------------|-----------------------------------------------------------------------------------------------------------------------------------------|
 |**Figure 1:** Building Numerical modelling scheme | **Figure 2:** Masonry structure accommodating to a subsidence surface |
 
 In the Netherlands, it has been customary for engineering consultants to perform inspections in those buildings affected by subsidence phenomena. Their assessment and investigation eventually take the form of a foundation assessment report. In this report the inspection and posterior assessment findings are presented, its contents usually include the archival information of the building (year of construction, major remodelations..). An extensive building damage documentation presented in the form of images indicating the severity and location of the damage sustained by the building, a  measurements campaign to quantify the distortions experienced by the building, usually taking the form of skew measurements at different locations in the building. Lastly, a simple soil exploration campaign to understand the capacity of the underneath soil and the location typology and dimensions of the foundation relative to the underneath strata.
 
-|<img src="_data\fig\assessment_report\skew_measurements.png" style="width: 50%"> | <img src="_data\fig\assessment_report\soil_exploration.svg" style="width: 50%">|
+|<img src="_data\fig\assessment_report\skew_measurements.png"> | <img src="_data\fig\assessment_report\soil_exploration.svg">|
 |-------------------------------------------------------------------------------------------------------------------------|-----------------------------------------------------------------------------------------------------------------------------------------|
 |**Figure 3:** Exemplary skew measurement diagram | **Figure 4:** Masonry structure accommodating to a subsidence surface |
 
