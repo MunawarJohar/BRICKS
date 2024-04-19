@@ -175,33 +175,33 @@ class house:
             
             w0 = wallz[0]
             w1 = wallz[-1]
+
             length = hwall_length(wall, wall_num+1)
-            
             if (wall_num + 1) % 2 == 0:
                 x_coords[wall_num] = wall['x']
             else:
-                x_coords[wall_num] = wall['y']
-            # -------------------------- differential settlement ------------------------- #
+                x_coords[wall_num] = wall['y']        
+
+            x = x_coords[wall_num]
+            x0 = x[0]
+            xmin = x[np.argmin(wallz)]
             s_vmax = np.abs(min(wallz))
 
-            xmin = x_coords[wall_num][np.argmin(wallz)]
-            x0 = x_coords[wall_num][0]
+            d_deflection = 0
+            for i,z in enumerate(wallz): # Find maximum relative displacement
+                dx_svmax = np.abs(x[i] - x0)
+                deltai = z - ((w1 - w0) / length) * dx_svmax
+                deltai = round(deltai,3)
+                d_deflection = deltai if deltai >= d_deflection else d_deflection
 
-            dx_svmax = np.abs(xmin - x0)
-            d_deflection = s_vmax - (w0 - w1 / length) * dx_svmax
-            #Rounding to avoid floating point errors in conditions
-            d_deflection = round(d_deflection,3) 
-
-            omega = np.arctan((w0 - w1) / length)
-
-            # --------------------------------- rotation --------------------------------- #
             wmin = np.min([w0, w1])
             wclose = wmin if np.abs(wmin) != s_vmax else np.max([w0, w1])
             ind = np.where(wallz == wclose)
             xclose = x_coords[wall_num][ind]
             phi = float(np.arctan((s_vmax - np.abs(wclose)) / np.abs(xclose - xmin)))
 
-            # ---------------------------- angular distortion ---------------------------- #
+            omega = np.arctan((w0 - w1) / length)
+
             beta = phi + omega if d_deflection != 0 else 0
 
             self.soil['sri'][key] = {'Smax': abs(min(wall['z'])),

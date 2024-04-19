@@ -1,8 +1,9 @@
 
 import numpy as np
-from dash import Dash, dcc, html
 import plotly.graph_objects as go
 import plotly.figure_factory as ff
+
+from dash import Dash, dcc, html
 from plotly.subplots import make_subplots
 from matplotlib.colors import LinearSegmentedColormap
 
@@ -319,31 +320,44 @@ def EM_plot(report):
     for wall in walls:
         data_matrix = []
         wall_param_labels = []
+        description_annotations = []
         
         for parameter in parameters:
             row = []
-            current_sources = {item['source']: item['value'] for item in report[wall][parameter]}
+            d_row = []
+            current_data = {item['source']: (item['degree'], item['assessment']) for item in report[wall][parameter]}
             for source in sources:
-                row.append(current_sources.get(source, None))  
+                value, description = current_data.get(source, (None, ""))  # Use (None, "") for missing values
+                row.append(value)
+                d_row.append(description)
             data_matrix.append(row)
+            description_annotations.append(d_row)
             wall_param_labels.append(f"{parameter}")  
 
         data_matrix = np.array(data_matrix, dtype=np.float32)  
-        annotations = np.vectorize(lambda x: f"<b>{x:.2f}</b>" if x is not None else "")(data_matrix)
+
+        annotations = []
+        for desc_row, yd in zip(description_annotations, wall_param_labels):
+            for desc, xd in zip(desc_row, sources):
+                annotations.append(dict(showarrow=False, text=f"<b>{desc}</b>", x=xd, y=yd, font=dict(color="black")))
 
         fig = ff.create_annotated_heatmap(
             z=data_matrix,
             x=sources,
             y=wall_param_labels,
-            annotation_text=annotations,
+            annotation_text=np.vectorize(lambda x: "")(data_matrix),  # Blank texts since descriptions are handled separately
             colorscale='RdYlGn_r',  # Red to Green color scale, reversed
-            showscale=True
+            zmin = 0,
+            zmax = 1,
+            showscale=True,
+            customdata=np.array(description_annotations),
+            hoverinfo='text',
+            text=np.vectorize(lambda desc: f"{desc}")(description_annotations)
         )
 
-        # Update the layout for each figure to enhance readability
         fig.update_layout(
-            title=f'Test Values Heatmap for {wall}',
-            xaxis=dict(title='Test Source',
+            title=f'{wall.capitalize()} assesment through empirical methods',
+            xaxis=dict(title='Literature Source',
                         side = 'bottom'),
             yaxis=dict(title='SRI Parameter'),
             xaxis_showgrid=True,
@@ -354,13 +368,12 @@ def EM_plot(report):
 
         figs.append(fig)
 
-    # Create tabs, each containing a graph for a wall
     tab_heading_style = {
         'fontFamily': 'Arial, sans-serif',
         'color': '#3a4d6b'
     }
 
-    tabs_content = [dcc.Tab(label=f"{wall}", children=[dcc.Graph(figure=fig)], style=tab_heading_style, selected_style=tab_heading_style) for wall, fig in zip(walls, figs)]
+    tabs_content = [dcc.Tab(label=f"{wall.capitalize()}", children=[dcc.Graph(figure=fig)], style=tab_heading_style, selected_style=tab_heading_style) for wall, fig in zip(walls, figs)]
 
     app.layout = html.Div([
         dcc.Tabs(children=tabs_content)

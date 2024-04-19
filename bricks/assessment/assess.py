@@ -1,10 +1,12 @@
+import traceback
+
 import numpy as np
 from scipy.interpolate import interp1d
 
 from .empirical_limits import empirical_limits
 from ..utils import gaussian_shape, hwall_length
 
-def evaluate_wall(wall_values, empirical_limits):
+def evaluate_wall(wall_values, empirical_limits) -> list:
     """
     Evaluate the wall based on the given wall values and empirical limits.
 
@@ -30,15 +32,23 @@ def evaluate_wall(wall_values, empirical_limits):
                         break
                 else:
                     description_index = len(limits) - 1
-
-                param_report.append({ 
-                    'source': test['source'],
-                    'assessment': test['description'][description_index],
-                    'value': current_value,
-                    'limit': limits[description_index],
-                    'evaluation': test['degree'][description_index],
-                    'comment': f"Assessment based on {parameter}"
-                })
+                try:
+                    param_report.append({ 
+                        'source': test['source'],
+                        'assessment': test['description'][description_index - 1],
+                        'value': current_value,
+                        'limit': limits[description_index],
+                        'degree': test['degree'][description_index - 1],
+                        'comment': f"Assessment based on {parameter}"
+                    })
+                except IndexError as e:
+                    tb_info = traceback.format_exc(limit=-1)  
+                    print(f"Error: Index ({description_index}) is out of range. Param: {parameter}, test: {test['source']}.")
+                    print(f"Exception message: {str(e)}")
+                    print("Detailed traceback:")
+                    print(tb_info)
+                    print("Please verify in empirical_limits the number of limits, description and degrees are coherent\n")
+                    continue  
         wall_report[parameter] = param_report 
     return wall_report
 
