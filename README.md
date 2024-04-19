@@ -72,7 +72,7 @@ The surface can the be visualised as follows,
 
 ### 2. Perform your preliminary assessment of your building
 
-The bricks module currently provides two main functionalities to assess a building, one is through a compilation of empirical methods i.e empirical correlations that have been determined by researchers linking the amount of damage expected in a building due to its current situation. And secondly the LTSM a elementary structural mechanical aproach the displacement and strains of the building subject to a subsidence distribution.
+The bricks module currently provides two main functionalities to assess a building, one is through a compilation of empirical methods i.e empirical correlations that have been determined by researchers linking the amount of damage expected in a building due to its current situation. And secondly the LTSM a elementary structural mechanical approach the displacement and strains of the building subject to a subsidence distribution.
 
 ### 2.1 Assesment against empirical methods
 
@@ -85,14 +85,14 @@ app = plots.EM_plot(report)
 
 app.run_server(debug=False)
 ```
-The output will be a report with the assessment state source and SRI parameter evaluated. As can be seen above the making use of `bricks.tools` the `EM_plot()` can be called which will help you visualise the assesments reports. An example of the above is the following,
+The output will be a report with the assessment state source and SRI parameter evaluated. As can be seen above the making use of `bricks.tools` the `EM_plot()` can be called which will help you visualise the assessments reports. An example of the above is the following,
 
 ![EM Assesment](_data\fig\EM_assess.png)
 **Figure 6:** Visualisation matrix of results from different assessment methods
 
 ### 2.1 Assesment through Burland & Wroth (1974) -> `LTSM`
 
-The second main available assesment method is the LTSM. This method was devised by Burland & Wroth (1974) and was then expanded by other researchers such as Boscardin & Cording (1989). This method schematises a building or wall as an equivalent masonry beam and a Timoschenko beam formulation from which the subsidence through is applied. From here onwards the hogging and sagging regions of the before estimated gaussian settlement troughs are calculated and the estimation of the building strains is performed. 
+The second main available assessment method is the LTSM. This method was devised by Burland & Wroth (1974) and was then expanded by other researchers such as Boscardin & Cording (1989). This method schematises a building or wall as an equivalent masonry beam and a Timoschenko beam formulation from which the subsidence through is applied. From here onwards the hogging and sagging regions of the before estimated gaussian settlement troughs are calculated and the estimation of the building strains is performed. 
 
 |       |   e_tot |    e_bt | e_dt |    e_bh |    e_bs |    e_sh |    e_ss | e_h |        l_h |        l_s |      dw_h |      dw_s |
 |-------|---------|---------|------|---------|---------|---------|---------|-----|------------|------------|-----------|-----------|
@@ -115,7 +115,7 @@ The second main available assesment method is the LTSM. This method was devised 
 Bricks is a in development module which aims to help engineers and homeowners in the netherlands be able to evaluate the vulnerability of their houses through accessible easy to use tools. The module has three main components.
 
 1. **`house`** : A class which allows you to create an object of your own house and also provides the basic functionalities to process your building's soil and structural characteristic values relevant to the posterior analysis.
-2. **`bricks.assessment`** : Sub-module that contains the state-of-the-art analysis techniques relevant to perform a pre-emptive assessment of your structure. The current available methods available 'assess.py' are the LTSM and a compilation of empirically determined thresholds of a structures KPI's. Although effective it is important to note some of these tools lack the precission of other FEM counterparts and aim to serve as tools for educated decision making for accessible vulnerability assessment or to determine the necessity of more precise assessment methods to be employed.
+2. **`bricks.assessment`** : Sub-module that contains the state-of-the-art analysis techniques relevant to perform a pre-emptive assessment of your structure. The current available methods available 'assess.py' are the LTSM and a compilation of empirically determined thresholds of a structures KPI's. Although effective it is important to note some of these tools lack the precision of other FEM counterparts and aim to serve as tools for educated decision making for accessible vulnerability assessment or to determine the necessity of more precise assessment methods to be employed.
 3. **`bricks.tools`**: Sub-module that contains primarily the tools to visualise the different assessment methods performed and to visualise the current state of your building.  
 
 In addition the main directory contains `Ijsselsteinseweg 77.ipynb` a exemplary notebook which illustrates how to perform the assessment of your building and how to utilise the visualisation tools available from 'bricks'. This is carried out through analysis of a real world scenario.  
