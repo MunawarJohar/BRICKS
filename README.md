@@ -88,6 +88,7 @@ app.run_server(debug=False)
 The output will be a report with the assessment state source and SRI parameter evaluated. As can be seen above the making use of `bricks.tools` the `EM_plot()` can be called which will help you visualise the assessments reports. An example of the above is the following,
 
 <img src="_data\fig\EM_assess.png">
+
 **Figure 6:** Visualisation matrix of results from different assessment methods
 
 ### 2.1 Assesment through Burland & Wroth (1974) -> `LTSM`
@@ -107,6 +108,7 @@ app.run_server(debug=False)
 The produced plot when performing the evaluation is the following,
 
 <img src="_data\fig\LTSM_assess.png">
+
 **Figure 7:** Visualisation of LTSM
 
 ## Breakdown of the `bricks` module and the repository
