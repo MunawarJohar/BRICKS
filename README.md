@@ -66,8 +66,8 @@ plots.subsidence(ijsselsteinseweg, building = False, soil= True, deformation= Tr
 ```
 The surface can the be visualised as follows,
 
-![Soil subsidence surface](_data\fig\subsidence_surface.png)
 
+<img src="_data\fig\subsidence_surface.png">
 **Figure 5:** Visualised aproximated soil surface for Ijsselsteinseweg 77.
 
 ### 2. Perform your preliminary assessment of your building
@@ -87,28 +87,27 @@ app.run_server(debug=False)
 ```
 The output will be a report with the assessment state source and SRI parameter evaluated. As can be seen above the making use of `bricks.tools` the `EM_plot()` can be called which will help you visualise the assessments reports. An example of the above is the following,
 
-![EM Assesment](_data\fig\EM_assess.png)
+<img src="_data\fig\EM_assess.png">
 **Figure 6:** Visualisation matrix of results from different assessment methods
 
 ### 2.1 Assesment through Burland & Wroth (1974) -> `LTSM`
 
-The second main available assessment method is the LTSM. This method was devised by Burland & Wroth (1974) and was then expanded by other researchers such as Boscardin & Cording (1989). This method schematises a building or wall as an equivalent masonry beam and a Timoschenko beam formulation from which the subsidence through is applied. From here onwards the hogging and sagging regions of the before estimated gaussian settlement troughs are calculated and the estimation of the building strains is performed. 
+The second main available assessment method is the LTSM. This method was devised by Burland & Wroth (1974) and was then expanded by other researchers such as Boscardin & Cording (1989). This method schematises a building or wall as an equivalent masonry beam and a Timoschenko beam formulation from which the subsidence through is applied. From here onwards the hogging and sagging regions of the before estimated gaussian settlement troughs are calculated and the estimation of the building strains is performed. The following is an example of use of its relevant methods.
 
-|       |   e_tot |    e_bt | e_dt |    e_bh |    e_bs |    e_sh |    e_ss | e_h |        l_h |        l_s |      dw_h |      dw_s |
-|-------|---------|---------|------|---------|---------|---------|---------|-----|------------|------------|-----------|-----------|
-| **Wall 1** | 0.022297| 0.022297|   0.0| 0.003138| 0.022297| 0.021860| 0.008913|   0 | 3947.199407| 3052.800593|  69.843047| 218.245786|
-| **Wall 2** | 0.017079| 0.017079|   0.0| 0.000000| 0.017079| 0.000000| 0.005739|   0 |  106.151112| 8793.848888|   0.000000| 244.614170|
-| **Wall 4** | 0.028682| 0.028682|   0.0| 0.000000| 0.028682| 0.000000| 0.011363|   0 |    0.000000| 3400.000000|  38.988505| 285.019065|
-| **Wall 4** | 0.019284| 0.019284|   0.0| 0.000000| 0.019284| 0.000000| 0.007900|   0 |    0.000000| 1900.000000|  40.373108| 181.409967|
-| **Wall 5** | 0.021176| 0.021176|   0.0| 0.000000| 0.021176| 0.000000| 0.008344|   0 |    0.000000| 3600.000000|  20.754595| 212.411919|
-| **Wall 6** | 0.013452| 0.013452|   0.0| 0.002134| 0.013452| 0.009436| 0.005150|   0 | 6218.698494| 4581.301506|  48.319648| 142.131796|
+```python
+limit_line = -1
+eg_rat =  11  ## May vary # Calibrate
 
-**Table 2:** Results from LTSM on building
+LTSM(ijsselsteinseweg, limit_line, eg_rat, save = True)
+app = plots.LTSM_plot(ijsselsteinseweg)    
 
+app.run_server(debug=False)
+```
 
-![EM Assesment](_data\fig\LTSM_assess.png)
+The produced plot when performing the evaluation is the following,
+
+<img src="_data\fig\LTSM_assess.png">
 **Figure 7:** Visualisation of LTSM
-
 
 ## Breakdown of the `bricks` module and the repository
 
