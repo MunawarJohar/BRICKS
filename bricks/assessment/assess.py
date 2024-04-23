@@ -6,6 +6,65 @@ from scipy.interpolate import interp1d
 from .empirical_limits import empirical_limits
 from ..utils import gaussian_shape, hwall_length
 
+def compute_damage_parameter(damage: dict = None, object = None) -> dict:
+    """
+    Calculate the damage parameters for a given set of damages and an object. Will compute 
+
+    ## Args:
+        damage (dict, optional): A dictionary containing the damage information. Defaults to None.
+        object (object, optional): An object representing the damaged structure. Defaults to None.
+
+    ## Returns:
+        dict: A dictionary containing the calculated damage parameters.
+
+    """
+    for key in list(damage.keys()):
+        dict_ = damage[key]
+        damage[key]['c2_w'] = dict_['c_w']**2 * dict_['c_l'] 
+
+    dam_pw = {}
+    test = object is not None 
+    if test:
+        walls = list(object.house.keys())
+    else:
+        id_list = [damage[crack]['wall_id'] for crack in damage.keys()]
+        walls = list(set(id_list)) 
+
+    for wall in walls:
+        if test:
+            area = object.house[wall]['area']
+        else:
+            area = damage[wall]['area']
+        
+        n_c = []
+        c_w_n = []
+        c_w_d = []
+        rel_walls = [key for key in list(damage.keys()) if damage[key]['wall_id'] == wall]
+        for key in rel_walls:
+            param = damage[key]
+            n_c += [key]
+            c_w_n += param['c2_w'] * param['c_l']
+            c_w_d += param['c_w'] * param['c_l']
+        n_c = len(n_c)
+        c_w = sum(c_w_n) / sum(c_w_d) if c_w_d != 0 else 0
+        
+        psi = 2*n_c**0.15 * c_w**0.3
+        mu = area * psi
+        dam_pw[wall] =  {'Area' : area,
+                        'n_c' : n_c,
+                        'c_w ': c_w,
+                        'psi': psi}
+
+    num = 0
+    for wall in dam_pw.keys():
+        num += dam_pw[wall]['psi'] * dam_pw[wall]['area']
+        den += dam_pw[wall]['area']
+
+    psi_building = num/den
+
+    return {'psi_building': psi_building,
+            'psi_wall': dam_pw}
+
 def evaluate_wall(wall_values, empirical_limits) -> list:
     """
     Evaluate the wall based on the given wall values and empirical limits.
