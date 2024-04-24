@@ -309,6 +309,16 @@ def compute_param(strain_value):
     return hex_color, cat[ind]
 
 def EM_plot(report):
+    """
+    Generate an annotated heatmap plot for empirical assessment.
+
+    Args:
+        report (dict): A dictionary containing the empirical assessment report.
+
+    Returns:
+        app (Dash): The Dash application object.
+
+    """
     app = Dash(__name__)
 
     # Consolidate all sources from all walls and parameters into a single sorted list
@@ -362,14 +372,15 @@ def EM_plot(report):
         )
 
         fig.update_layout(
-            title=f'{wall.capitalize()} assesment through empirical methods',
+            title=f'{wall.capitalize()} empirical assessment',
             xaxis=dict(title='Literature Source',
                         side = 'bottom',
                         showgrid = True),
             yaxis=dict(title='SRI Parameter',
                        showgrid = True,
                        autorange = 'reversed'),
-            coloraxis_colorbar= dict( title='Relative damage score'),
+            coloraxis_colorbar=dict(title='Relative damage score'),
+            legend_title_text='Relative damage score',
             template='plotly_white'
         )
 

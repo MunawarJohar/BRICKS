@@ -68,6 +68,7 @@ The surface can the be visualised as follows,
 
 
 <img src="_data\fig\subsidence_surface.png">
+
 **Figure 5:** Visualised aproximated soil surface for Ijsselsteinseweg 77.
 
 ### 2. Perform your preliminary assessment of your building
