@@ -311,11 +311,18 @@ def compute_param(strain_value):
 def EM_plot(report):
     app = Dash(__name__)
 
+    # Consolidate all sources from all walls and parameters into a single sorted list
+    all_sources = set()
+    for wall in report:
+        for param in report[wall]:
+            all_sources.update(src['source'] for src in report[wall][param])
+    
     all_sources = {src['source'] for wall in report for param in report[wall] for src in report[wall][param]}
     sources = sorted(all_sources)
     walls = list(report.keys())
     parameters = list(next(iter(report.values())).keys())
 
+    
     figs = []  
     for wall in walls:
         data_matrix = []
@@ -335,7 +342,6 @@ def EM_plot(report):
             wall_param_labels.append(f"{parameter}")  
 
         data_matrix = np.array(data_matrix, dtype=np.float32)  
-
         annotations = []
         for desc_row, yd in zip(description_annotations, wall_param_labels):
             for desc, xd in zip(desc_row, sources):
@@ -358,11 +364,12 @@ def EM_plot(report):
         fig.update_layout(
             title=f'{wall.capitalize()} assesment through empirical methods',
             xaxis=dict(title='Literature Source',
-                        side = 'bottom'),
-            yaxis=dict(title='SRI Parameter'),
-            xaxis_showgrid=True,
-            yaxis_showgrid=True,
-            yaxis_autorange='reversed',
+                        side = 'bottom',
+                        showgrid = True),
+            yaxis=dict(title='SRI Parameter',
+                       showgrid = True,
+                       autorange = 'reversed'),
+            coloraxis_colorbar= dict( title='Relative damage score'),
             template='plotly_white'
         )
 

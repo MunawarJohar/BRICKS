@@ -69,11 +69,11 @@ def empirical_limits():
                 'degree': [0,1.0]},],
     
         'dSmax': [
-            {'source': "Skemptom & McDonald (1956)", 
+            {'source': "Skempton & McDonald (1956)", 
                 'limits': [0,0.032,float('inf')], 
                 'description': ['No damage', 'Damage in sand (all types of foundation)'],
                 'degree': [0, 1.0]},
-            {'source': "Skemptom & McDonald (1956)",
+            {'source': "Skempton & McDonald (1956)",
                 'limits': [0,0.045,float('inf')],
                 'description': ['No damage', 'Damage in clay (all types of foundation)'],
                 'degree': [0, 1.0]}
