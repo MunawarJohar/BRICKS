@@ -49,7 +49,7 @@ def plot_surface(x_mesh, y_mesh, z_lin, z_qint):
 
 def wall_displacement(OBJECT):
     fig = go.Figure()
-    colors = ['#3182bd', '#6baed6', '#9ecae1', '#c6dbef', '#eff3ff']  
+    colors = ['#00a6d6', '#A50034', '#FFB81C', '#0076c2', '#EC6842']  
     line_types = ['solid', 'dash']
     process = OBJECT.process
 
@@ -66,9 +66,11 @@ def wall_displacement(OBJECT):
                                 line=dict(color=colors[color_index], dash=line_types[1]),
                                 name=f'Wall {i+1} Quadratic'))
 
-    fig.update_layout(title='Approximation of Different Walls',
-                    xaxis_title='X-Axis',
-                    yaxis_title='Z-Axis',
+    fig.update_layout(title='Displacement profile of different Walls',
+                    xaxis_title='Wall length [m]',
+                    yaxis_title='Displacement W[mm]',
+                    height = 600,
+                    width = 1500,
                     legend=dict(x=1.05, y=1, traceorder="normal"), 
                     template='plotly_white',)
     fig.show()
