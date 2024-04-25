@@ -18,10 +18,6 @@ def compute_damage_parameter(damage: dict = None, object = None) -> dict:
         dict: A dictionary containing the calculated damage parameters.
 
     """
-    for key in list(damage.keys()):
-        dict_ = damage[key]
-        damage[key]['c2_w'] = dict_['c_w']**2 * dict_['c_l'] 
-
     dam_pw = {}
     test = object is not None 
     if test:
@@ -30,12 +26,21 @@ def compute_damage_parameter(damage: dict = None, object = None) -> dict:
         id_list = [damage[crack]['wall_id'] for crack in damage.keys()]
         walls = list(set(id_list)) 
 
+    for key in list(damage.keys()):
+        dict_ = damage[key]
+        damage[key]['c2_w'] = dict_['c_w']**2 * dict_['c_l'] 
+
     for wall in walls:
         if test:
-            area = object.house[wall]['area']
+            try:
+                area = object.house[wall]['area']
+            except KeyError as e:
+                print(f"Error: Index ({wall}) is out of range.")
+                print(f"Exception message: {str(e)}")
+                continue
         else:
             area = damage[wall]['area']
-        
+            
         n_c = []
         c_w_n = []
         c_w_d = []
@@ -43,24 +48,28 @@ def compute_damage_parameter(damage: dict = None, object = None) -> dict:
         for key in rel_walls:
             param = damage[key]
             n_c += [key]
-            c_w_n += param['c2_w'] * param['c_l']
-            c_w_d += param['c_w'] * param['c_l']
+            c_w_n += [damage[key]['c2_w']]
+            c_w_d += [param['c_w'] * param['c_l']]
         n_c = len(n_c)
-        c_w = sum(c_w_n) / sum(c_w_d) if c_w_d != 0 else 0
-        
-        psi = 2*n_c**0.15 * c_w**0.3
+        c_w = sum(c_w_n) / sum(c_w_d) if len(c_w_d) != 0 else 0
+
+        psi = 2* n_c**0.15 * c_w**0.3
         mu = area * psi
-        dam_pw[wall] =  {'Area' : area,
+        dam_pw[wall] =  {'area' : area,
                         'n_c' : n_c,
                         'c_w ': c_w,
                         'psi': psi}
+        dam_pw[wall] = {key: round(value, 2) 
+                        for key, value 
+                        in {'area': area, 'n_c': n_c, 'c_w': c_w, 'psi': psi}.items()}
 
     num = 0
+    den = 0
     for wall in dam_pw.keys():
         num += dam_pw[wall]['psi'] * dam_pw[wall]['area']
         den += dam_pw[wall]['area']
 
-    psi_building = num/den
+    psi_building = round(num/den, 2)
 
     return {'psi_building': psi_building,
             'psi_wall': dam_pw}
