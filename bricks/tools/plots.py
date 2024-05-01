@@ -344,7 +344,7 @@ def EM_plot(report):
         for parameter in parameters:
             row = []
             d_row = []
-            current_data = {item['source']: (item['degree'], item['assessment']) for item in report[wall][parameter]}
+            current_data = {item['source']: (item['DL'], item['assessment']) for item in report[wall][parameter]}
             for source in sources:
                 value, description = current_data.get(source, (None, ""))  # Use (None, "") for missing values
                 row.append(value)
@@ -366,7 +366,7 @@ def EM_plot(report):
             annotation_text=np.vectorize(lambda x: "")(data_matrix),  # Blank texts since descriptions are handled separately
             colorscale='RdYlGn_r',  # Red to Green color scale, reversed
             zmin = 0,
-            zmax = 1,
+            zmax = 5,
             showscale=True,
             customdata=np.array(description_annotations),
             hoverinfo='text',

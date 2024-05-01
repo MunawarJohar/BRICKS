@@ -106,7 +106,7 @@ def evaluate_wall(wall_values, empirical_limits) -> list:
                         'assessment': test['description'][description_index - 1],
                         'value': current_value,
                         'limit': limits[description_index],
-                        'degree': test['degree'][description_index - 1],
+                        'DL': test['DL'][description_index - 1],
                         'comment': f"Assessment based on {parameter}"
                     })
                 except IndexError as e:
