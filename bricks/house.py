@@ -4,6 +4,7 @@ import numpy as np
 from pandas import DataFrame
 from scipy.interpolate import griddata
 from scipy.optimize import curve_fit
+from scipy.spatial import ConvexHull, Delaunay
 
 from .utils import hwall_length, get_range, find_root_iterative, gaussian_shape, interpolate_2d 
 
@@ -47,16 +48,17 @@ class house:
 
     def interpolate(self):
         """
-        Interpolates the data points to create a mesh and perform interpolation.
+        Interpolates the surface of the house using linear and cubic interpolation.
 
-        This method interpolates the data points of the house object to create a mesh and perform interpolation
-        using linear and cubic interpolation methods. The interpolated values are then assigned to the respective
-        walls of the house.
+        This method creates a mesh grid based on the minimum and maximum x and y coordinates of the house walls.
+        It then uses Delaunay triangulation to determine the points inside the convex hull of the house.
+        The surface is interpolated using both linear and cubic interpolation methods.
+        Values outside the convex hull are masked out.
 
         Returns:
-            None
+            Assigns OBJECT.soil & OBJECT.process
         """
-        for i, wall in enumerate(self.house):
+        for wall in self.house:
             x_min = min(self.house[wall]["x"].min() for wall in self.house)
             x_max = max(self.house[wall]["x"].max() for wall in self.house)
             y_min = min(self.house[wall]["y"].min() for wall in self.house)
@@ -65,35 +67,50 @@ class house:
         # -------------------------------- create mesh ------------------------------- #
         x_lin = np.linspace(x_min, x_max, 100)
         y_lin = np.linspace(y_min, y_max, 100)
-        x_mesh, y_mesh = np.meshgrid(x_lin, y_lin)
         x_boundary, y_boundary, z_boundary = self.boundary
-        # ------------------------------- Interpolation ------------------------------ #
+        points = np.column_stack((x_boundary, y_boundary))
+        hull = Delaunay(points)
+        x_mesh, y_mesh = np.meshgrid(x_lin, y_lin)
+        mesh_points = np.column_stack((x_mesh.ravel(), y_mesh.ravel()))
+        inside_hull = hull.find_simplex(mesh_points) >= 0
+        inside_hull = inside_hull.reshape(x_mesh.shape)
+        # ---------------------------- Interpolate surface --------------------------- #
         z_lin = interpolate_2d(x_boundary, y_boundary, z_boundary, x_mesh, y_mesh, 'linear')
-        z_lin[int((36/70)*100):,int((89/108)*100):] = np.nan
         z_qint = interpolate_2d(x_boundary, y_boundary, z_boundary, x_mesh, y_mesh, 'cubic')
-        z_qint[int((36/70)*100):,int((89/108)*100):] = np.nan
-        # -------------------------- Repartition into walls -------------------------- #
-        self.process['int'] = {}
-        for i, wall in enumerate(self.house):
-            list_x = get_range(self.house[wall], 'x')
-            list_y = get_range(self.house[wall], 'y')
-            if np.all(self.house[wall]['x'] == self.house[wall]['x'][0]):  # wall is along the y axis
-                z_lin_flat = z_lin[:, list_x].flatten()
-                mask = np.isnan(np.array(z_qint[:,list_x]).flatten())
-                z_lin_flat[mask] = np.nan
-                self.process['int'][wall] = { 'z_lin': np.array(z_lin_flat),
-                                        'z_q': np.array(z_qint[:, list_x]).flatten(),
-                                        'ax': y_mesh[:,0]}
 
+        z_lin[~inside_hull] = np.nan
+        z_qint[~inside_hull] = np.nan
+        # ------------------------------- Process walls ------------------------------ #
+        self.process['int'] = {}
+        for wall in self.house:
+            x_start, x_end = self.house[wall]['x'][0], self.house[wall]['x'][-1]
+            y_start, y_end = self.house[wall]['y'][0], self.house[wall]['y'][-1]
+
+            x_start_idx = np.argmin(np.abs(x_lin - x_start))
+            x_end_idx = np.argmin(np.abs(x_lin - x_end)) + 1  
+            y_start_idx = np.argmin(np.abs(y_lin - y_start))
+            y_end_idx = np.argmin(np.abs(y_lin - y_end)) + 1
+
+            if np.all(self.house[wall]['x'] == self.house[wall]['x'][0]):  # wall is along the y axis
+                    z_lin_slice = z_lin[y_start_idx:y_end_idx, x_start_idx:x_end_idx].flatten()
+                    z_qint_slice = z_qint[y_start_idx:y_end_idx, x_start_idx:x_end_idx].flatten()
+                    ax = y_lin[y_start_idx:y_end_idx] - y_lin[y_start_idx]   
+                    self.process['int'][wall] = {'z_lin': z_lin_slice,
+                                                  'z_q': z_qint_slice,
+                                                    'ax': ax}
             else:  # wall is along the x axis
-                z_lin_flat = z_lin[list_y,:].flatten()
-                mask = np.isnan(np.array(z_qint[list_y,:]).flatten())
-                z_lin_flat[mask] = np.nan
-                self.process['int'][wall] = { 'z_lin': np.array(z_lin_flat), 
-                                        'z_q': np.array(z_qint[list_y,:]).flatten(),
-                                        'ax': x_mesh[0,:] }
-        self.soil = {'house':{'x':x_mesh,'y':y_mesh,'linear': z_lin, 'quadratic': z_qint}}
-    
+                z_lin_slice = z_lin[y_start_idx:y_end_idx, x_start_idx:x_end_idx].flatten()
+                z_qint_slice = z_qint[y_start_idx:y_end_idx, x_start_idx:x_end_idx].flatten()
+                ax = x_lin[x_start_idx:x_end_idx] - x_lin[x_start_idx]
+                self.process['int'][wall] = {'z_lin': z_lin_slice,
+                                              'z_q': z_qint_slice,
+                                                'ax': ax}
+
+        self.soil = {'house': {'x': x_mesh,
+                                'y': y_mesh,
+                                'linear': z_lin,
+                                'quadratic': z_qint}}
+
     def fit_function(self, i_guess, tolerance, step, function = gaussian_shape):
         """
         Fits Gaussian shapes to the data points in the house object and interpolates the shapes.

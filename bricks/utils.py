@@ -1,3 +1,5 @@
+from numpy import array
+from numpy import gradient
 from numpy import exp
 from scipy.interpolate import griddata
 

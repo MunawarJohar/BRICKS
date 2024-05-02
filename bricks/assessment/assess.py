@@ -148,7 +148,7 @@ def EM(soil_data: dict, limits = None) -> dict:
     return all_reports
 
 
-def LTSM(object, limit_line, eg_rat = 11, save = False):
+def LTSM(object, limit_line, eg_rat: int = 11, method: str = 'greenfield'):
     """
     Compute LTSM parameters and strain measures for a given wall.
 
@@ -176,15 +176,27 @@ def LTSM(object, limit_line, eg_rat = 11, save = False):
     for wall_ in object.house:
         i = list(object.house.keys()).index(wall_) + 1
         wall = object.house[wall_] 
-        params = object.process['params'][wall_]
         length = hwall_length(wall,i)
         height = wall['height']
         
-        W = gaussian_shape(params['x_gauss'], params['s_vmax'], params['x_inflection'])
-        X = params['x_gauss']
+        # ----------------------------- Determine method ----------------------------- #
+        if method == 'greenfield':
+            params = object.process['params'][wall_]
+            W = gaussian_shape(params['x_gauss'], params['s_vmax'], params['x_inflection'])
+            X = params['x_gauss']
+            x_inflection = np.abs(params['x_inflection'])
+            w_inflection = interp1d(X, W, kind = 'nearest')(x_inflection)
+    
+        if method == 'measurements':
+            W = object.process['int'][wall_]['ax']
+            X = object.process['int'][wall_]['z_q']
+            dW_dx = np.gradient(W, X)
+            d2W_dx2 = np.gradient(dW_dx, X)
+            ind = np.where(np.diff(np.sign(d2W_dx2)))[0]
+            x_inflection = X[ind]
+            w_inflection = W[ind] 
+
         # -------------------------- Compute LTSM parameters ------------------------- #
-        x_inflection = np.abs(params['x_inflection'])
-        w_inflection = interp1d(X, W, kind = 'nearest')(x_inflection)
         w_current = interp1d(X, W, kind = 'nearest')(length)
         x_limit = np.abs(interp1d(W, X, kind = 'nearest')(limit_line))
         l_hogging = max((length - x_inflection) * 1e3, 0)
