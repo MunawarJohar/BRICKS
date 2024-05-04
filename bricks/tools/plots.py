@@ -357,7 +357,7 @@ def EM_plot(report):
                                 colorscale='RdYlGn_r',  
                                 zmin=0,
                                 zmax=5,
-                                colorbar=dict(title='Damage Level <br>Index'),
+                                colorbar=dict(title='Damage<br> Level'),
                                 hoverongaps=False,
                                 hoverinfo='text',
                                 text=np.vectorize(lambda desc: f"{desc}")(description_annotations),

@@ -4,9 +4,10 @@ import numpy as np
 from pandas import DataFrame
 from scipy.interpolate import griddata
 from scipy.optimize import curve_fit
-from scipy.spatial import ConvexHull, Delaunay
+from scipy.spatial import Delaunay
 
-from .utils import hwall_length, get_range, find_root_iterative, gaussian_shape, interpolate_2d 
+from .assessment.utils import get_range, find_root_iterative, gaussian_shape, interpolate_2d 
+from .assessment import compute_sri, compute_damage_parameter
 
 class house:
     def __init__(self, measurements):
@@ -188,52 +189,12 @@ class house:
         ## Returns:
             dict: The updated object with the SRI values stored in the `SRI` attribute.
         """
-        self.soil['sri'] = {} 
-        x_coords = {}
+        self.soil['sri'] = {}
         
         for wall_num, key in enumerate(self.house):
-            wall = self.house[key]
-            wallz = wall['z'] - max(wall['z']) #Normalise displacements against each other  
-            
-            w0 = wallz[0]
-            w1 = wallz[-1]
+            sri_data = compute_sri(self.house, wall_num, key)
+            self.soil['sri'][key] = sri_data
 
-            length = hwall_length(wall, wall_num+1)
-            if (wall_num + 1) % 2 == 0:
-                x_coords[wall_num] = wall['x']
-            else:
-                x_coords[wall_num] = wall['y']        
-
-            x = x_coords[wall_num]
-            x0 = x[0]
-            xmin = x[np.argmin(wallz)]
-            s_vmax = np.abs(min(wallz))
-
-            d_deflection = 0
-            for i,z in enumerate(wallz): # Find maximum relative displacement
-                dx_svmax = np.abs(x[i] - x0)
-                deltai = z - ((w1 - w0) / length) * dx_svmax
-                deltai = round(deltai,3)
-                d_deflection = deltai if deltai >= d_deflection else d_deflection
-
-            wmin = np.min([w0, w1])
-            wclose = wmin if np.abs(wmin) != s_vmax else np.max([w0, w1])
-            ind = np.where(wallz == wclose)
-            xclose = x_coords[wall_num][ind]
-            phi = float(np.arctan((s_vmax - np.abs(wclose)) / np.abs(xclose - xmin)))
-
-            omega = np.arctan((w0 - w1) / length)
-
-            beta = phi + omega if d_deflection != 0 else 0
-
-            self.soil['sri'][key] = {'Smax': abs(min(wall['z'])),
-                                'dSmax': abs(s_vmax),
-                                'D/L': abs(s_vmax)/length,
-                                'drat': abs(d_deflection),
-                                'omega': abs(omega),
-                                'phi': abs(phi),
-                                'beta': abs(beta)}  
-    
     def process_dfs(self, curr_dic_list, names):
         """
         Turn list of dictionaries into their respective dataframes
