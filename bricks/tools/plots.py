@@ -55,12 +55,12 @@ def wall_displacement(OBJECT):
 
     for i, wall in enumerate(OBJECT.house):
         color_index = i % len(colors)
-        fig.add_trace(go.Scatter(x= process['int'][wall]['ax'], 
+        fig.add_trace(go.Scatter(x= process['int'][wall]['ax_rel'], 
                                 y= process['int'][wall]["z_lin"], 
                                 mode='lines',
                                 line=dict(color=colors[color_index], dash=line_types[0]),
                                 name=f'Wall {i+1} Linear'))
-        fig.add_trace(go.Scatter(x= process['int'][wall]['ax'], 
+        fig.add_trace(go.Scatter(x= process['int'][wall]['ax_rel'], 
                                 y= process['int'][wall]['z_q'], 
                                 mode='lines',
                                 line=dict(color=colors[color_index], dash=line_types[1]),
@@ -320,33 +320,25 @@ def EM_plot(report):
     Returns:
         app (Dash): The Dash application object.
 
-    """
+    """    
     app = Dash(__name__)
-
-    # Consolidate all sources from all walls and parameters into a single sorted list
     all_sources = set()
-    for wall in report:
-        for param in report[wall]:
-            all_sources.update(src['source'] for src in report[wall][param])
-    
     all_sources = {src['source'] for wall in report for param in report[wall] for src in report[wall][param]}
     sources = sorted(all_sources)
     walls = list(report.keys())
     parameters = list(next(iter(report.values())).keys())
 
-    
     figs = []  
     for wall in walls:
         data_matrix = []
         wall_param_labels = []
-        description_annotations = []
-        
+        description_annotations = []  
         for parameter in parameters:
             row = []
             d_row = []
             current_data = {item['source']: (item['DL'], item['assessment']) for item in report[wall][parameter]}
             for source in sources:
-                value, description = current_data.get(source, (None, ""))  # Use (None, "") for missing values
+                value, description = current_data.get(source, (np.nan, ""))  # Use np.nan for missing values
                 row.append(value)
                 d_row.append(description)
             data_matrix.append(row)
@@ -359,49 +351,38 @@ def EM_plot(report):
             for desc, xd in zip(desc_row, sources):
                 annotations.append(dict(showarrow=False, text=f"<b>{desc}</b>", x=xd, y=yd, font=dict(color="black")))
 
-        fig = ff.create_annotated_heatmap(
-            z=data_matrix,
-            x=sources,
-            y=wall_param_labels,
-            annotation_text=np.vectorize(lambda x: "")(data_matrix),  # Blank texts since descriptions are handled separately
-            colorscale='RdYlGn_r',  # Red to Green color scale, reversed
-            zmin = 0,
-            zmax = 5,
-            showscale=True,
-            customdata=np.array(description_annotations),
-            hoverinfo='text',
-            text=np.vectorize(lambda desc: f"{desc}")(description_annotations)
-        )
+        heatmap = go.Heatmap(z=data_matrix,
+                                x=sources,
+                                y=wall_param_labels,
+                                colorscale='RdYlGn_r',  
+                                zmin=0,
+                                zmax=5,
+                                colorbar=dict(title='Damage Level <br>Index'),
+                                hoverongaps=False,
+                                hoverinfo='text',
+                                text=np.vectorize(lambda desc: f"{desc}")(description_annotations),
+                                customdata=np.array(description_annotations))
 
-        fig.update_layout(
+        layout = go.Layout(
             title=f'{wall.capitalize()} empirical assessment',
-            xaxis=dict(title='Literature Source',
-                        side = 'bottom',
-                        showgrid = True),
-            yaxis=dict(title='SRI Parameter',
-                       showgrid = True,
-                       autorange = 'reversed'),
-            coloraxis_colorbar=dict(title='Relative damage score'),
-            legend_title_text='Relative damage score',
+            xaxis=dict(title='Literature Source', side='bottom', showgrid=True),
+            yaxis=dict(title='SRI Parameter', showgrid=True, autorange='reversed'),
             template='plotly_white'
         )
 
+        fig = go.Figure(data=heatmap, layout=layout)
         figs.append(fig)
 
     tab_heading_style = {
         'fontFamily': 'Arial, sans-serif',
         'color': '#3a4d6b'
     }
-
     tabs_content = [dcc.Tab(label=f"{wall.capitalize()}", children=[dcc.Graph(figure=fig)], style=tab_heading_style, selected_style=tab_heading_style) for wall, fig in zip(walls, figs)]
-
     app.layout = html.Div([
         dcc.Tabs(children=tabs_content)
     ])
-
     if __name__ == '__main__':
         app.run_server(debug=False)
-
     return app
 
 def LTSM_plot(object):        

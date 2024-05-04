@@ -92,33 +92,38 @@ class house:
             y_end_idx = np.argmin(np.abs(y_lin - y_end)) + 1
 
             if np.all(self.house[wall]['x'] == self.house[wall]['x'][0]):  # wall is along the y axis
-                    z_lin_slice = z_lin[y_start_idx:y_end_idx, x_start_idx:x_end_idx].flatten()
-                    z_qint_slice = z_qint[y_start_idx:y_end_idx, x_start_idx:x_end_idx].flatten()
-                    ax = y_lin[y_start_idx:y_end_idx] - y_lin[y_start_idx]   
+                    z_lin_slice = z_lin[x_start_idx:x_end_idx, y_start_idx:y_end_idx].flatten()
+                    z_qint_slice = z_qint[x_start_idx:x_end_idx, y_start_idx:y_end_idx].flatten()
+                    ax = y_lin[y_start_idx:y_end_idx]
+                    ax_rel = ax - y_lin[y_start_idx]   
                     self.process['int'][wall] = {'z_lin': z_lin_slice,
                                                   'z_q': z_qint_slice,
-                                                    'ax': ax}
+                                                    'ax': ax,
+                                                    'ax_rel': ax_rel}
             else:  # wall is along the x axis
-                z_lin_slice = z_lin[y_start_idx:y_end_idx, x_start_idx:x_end_idx].flatten()
-                z_qint_slice = z_qint[y_start_idx:y_end_idx, x_start_idx:x_end_idx].flatten()
-                ax = x_lin[x_start_idx:x_end_idx] - x_lin[x_start_idx]
+                z_lin_slice = z_lin[x_start_idx:x_end_idx, y_start_idx:y_end_idx].flatten()
+                z_qint_slice = z_qint[x_start_idx:x_end_idx, y_start_idx:y_end_idx].flatten()
+                ax = x_lin[x_start_idx:x_end_idx]
+                ax_rel = ax - x_lin[x_start_idx]
                 self.process['int'][wall] = {'z_lin': z_lin_slice,
                                               'z_q': z_qint_slice,
-                                                'ax': ax}
+                                                'ax': ax,
+                                                'ax_rel': ax_rel}
 
         self.soil = {'house': {'x': x_mesh,
                                 'y': y_mesh,
                                 'linear': z_lin,
                                 'quadratic': z_qint}}
 
-    def fit_function(self, i_guess, tolerance, step, function = gaussian_shape):
+    def fit_function(self, i_guess, tolerance, step, function=gaussian_shape):
         """
-        Fits Gaussian shapes to the data points in the house object and interpolates the shapes.
+        Fits Gaussian shapes to the data points of each wall in the house.
 
         Parameters:
         - i_guess (float): Initial guess for the root finding algorithm.
         - tolerance (float): Tolerance for the root finding algorithm.
         - step (float): Step size for the root finding algorithm.
+        - function (function, optional): Function to fit the data points. Defaults to gaussian_shape.
 
         Returns:
         None
@@ -139,19 +144,19 @@ class house:
             y_data = y_data[~mask]
 
             index = np.argmin(y_data)
-            y_normal = np.concatenate((y_data[:index+1], y_data[:index][::-1]))
-            x_gauss = np.concatenate((-x_data[:index+1][::-1], x_data[:index]))
-            x_data = np.concatenate((x_data[:index+1], x_data[index] + x_data[:index+1]))
+            y_normal = np.concatenate((y_data[:index + 1], y_data[:index][::-1]))
+            x_gauss = np.concatenate((-x_data[:index + 1][::-1], x_data[:index]))
+            x_data = np.concatenate((x_data[:index + 1], x_data[index] + x_data[:index + 1]))
 
-            optimized_parameters, params_cov = curve_fit(f= function, xdata=x_gauss, ydata=y_normal) 
+            optimized_parameters, params_cov = curve_fit(f=function, xdata=x_gauss, ydata=y_normal)
             guess = find_root_iterative(i_guess, optimized_parameters, tolerance, step)
 
-            x_gauss_2 = np.linspace(0, guess, 50) 
+            x_gauss_2 = np.linspace(0, guess, 50)
             x_gauss = np.concatenate((-x_gauss_2[::-1], x_gauss_2))
             x_normal = np.concatenate((x_data[index] - x_gauss_2[::-1], x_data[index] + x_gauss_2))
 
             self.process['params'][wall] = params = {
-                "s_vmax": optimized_parameters[0], 
+                "s_vmax": optimized_parameters[0],
                 "x_inflection": optimized_parameters[1],
                 "x_gauss": x_gauss,
                 "ax": x_normal
@@ -173,8 +178,8 @@ class house:
 
         x, y, z = [np.array(x_soil), np.array(y_soil), np.array(z_soil)]
         X, Y = np.meshgrid(np.linspace(x.min(), x.max(), 100), np.linspace(y.min(), y.max(), 100))
-        z_gaussian = griddata((x, y), z, (X, Y), method='cubic')  
-        self.soil['soil'] = {'x': X , 'y': Y, 'z': z_gaussian}
+        z_gaussian = griddata((x, y), z, (X, Y), method='cubic')
+        self.soil['soil'] = {'x': X, 'y': Y, 'z': z_gaussian}
     
     def SRI(self):
         """
