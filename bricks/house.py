@@ -27,6 +27,7 @@ class house:
         dfltsm (None): Placeholder for dfltsm information.
         """ 
         self.house = measurements
+        self.state = None
         self.process = {}
         self.soil = {}
         self.gaussian = {}
