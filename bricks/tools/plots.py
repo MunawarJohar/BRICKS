@@ -415,17 +415,17 @@ def LTSM_plot(object):
                                 y_title='Height [m,mm]',
                                 subplot_titles=('Relative Wall position', 'Subsidence profile'))
             
-            # Subsidence profile trace
-            # fig.add_trace(go.Scatter(x= int['ax'][::-1], 
-            #                         y= int["z_lin"],  
-            #                         mode='lines', 
-            #                         name='Subsidence profile'), 
-            #                         row=2, col=1)
-            fig.add_trace(go.Scatter(x=x, 
-                                    y=w, 
+            #Subsidence profile trace
+            fig.add_trace(go.Scatter(x= int['ax'][::-1], 
+                                    y= int["z_lin"],  
                                     mode='lines', 
-                                    name='Gaussian profile aproximation'), 
+                                    name='Subsidence profile'), 
                                     row=2, col=1)
+            # fig.add_trace(go.Scatter(x=x, 
+            #                         y=w, 
+            #                         mode='lines', 
+            #                         name='Gaussian profile aproximation'), 
+            #                         row=2, col=1)
 
             # Inflection traces
             for z in [-xinflection, xinflection]:

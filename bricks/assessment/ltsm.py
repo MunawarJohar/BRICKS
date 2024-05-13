@@ -5,6 +5,37 @@ from scipy.interpolate import interp1d
 
 from .utils import gaussian_shape, hwall_length
 
+def compute_strain_measure(height, wall, length, dl_hogging, lh_hogging, eg_rat, dl_sagging, lh_sagging, dw_hogging, dw_sagging):
+    ratio = height / 2 * 1e3
+    uxy = (wall['phi'][-1] - wall['phi'][0]) * 1000 * ratio
+    e_horizontal = uxy / length * 1e3
+
+    e_bending_hogg = dl_hogging * (3 * lh_hogging / (1 / 4 * lh_hogging ** 2 + 1.2 * eg_rat))
+    e_shear_hogg = dl_hogging * (3 * eg_rat / ((0.5 * lh_hogging ** 2) + 2 * 1.2 * eg_rat))
+
+    e_bending_sagg = dl_sagging * (6 * lh_sagging / (lh_sagging ** 2 + 2 * eg_rat))
+    e_shear_sagg = dl_sagging * (3 * lh_sagging / (2 * lh_sagging ** 2 + 2 * 1.2 * eg_rat))
+
+    e_bending = np.max([e_bending_sagg, e_bending_hogg])
+    e_shear = np.max([e_shear_sagg, e_shear_hogg])
+    e_horizontal = 0  ## How do you calculate delta L??
+
+    e_bt = e_bending + e_horizontal
+    e_dt = e_horizontal / (2 + np.sqrt((e_horizontal / 2) ** 2 + e_shear ** 2))
+    e_tot = np.max([e_bt, e_dt])
+
+    strain =  {
+        'e_tot': e_tot,
+        'e_bt': e_bt,
+        'e_dt': e_dt,
+        'e_bh': e_bending_hogg,
+        'e_bs': e_bending_sagg,
+        'e_sh': e_shear_hogg,
+        'e_ss': e_shear_sagg,
+        'e_h': e_horizontal,
+    }
+
+
 def LTSM(object, limit_line, eg_rat: int = 11, method: str = 'greenfield'):
     """
     Compute LTSM parameters and strain measures for a given wall.
@@ -43,6 +74,56 @@ def LTSM(object, limit_line, eg_rat: int = 11, method: str = 'greenfield'):
             X = params['x_gauss']
             x_inflection = np.abs(params['x_inflection'])
             w_inflection = interp1d(X, W, kind = 'nearest')(x_inflection)
+
+            w_current = interp1d(X, W, kind = 'nearest')(length)
+            x_limit = np.abs(interp1d(W, X, kind = 'nearest')(limit_line))
+            l_hogging = max((length - x_inflection) * 1e3, 0)
+            lh_hogging = l_hogging / height
+            dw_hogging = np.abs(w_current - w_inflection) ## location of building
+            dl_hogging = 0 if l_hogging == 0 else dw_hogging / l_hogging
+
+            l_sagging = length * 1e3 - l_hogging
+            lh_sagging = l_sagging / (height / 2)
+            dw_sagging = np.abs(W.min() + w_inflection)
+            dl_sagging = dw_sagging / l_sagging
+
+            # -------------------------- Compute strain measures ------------------------- #
+            ratio = height/ 2*1e3
+            uxy = (wall['phi'][-1] - wall['phi'][0])* 1000 * ratio
+            e_horizontal = uxy / length*1e3
+            
+            e_bending_hogg = dl_hogging * (3 * lh_hogging / (1 / 4 * lh_hogging ** 2 + 1.2 * eg_rat))
+            e_shear_hogg = dl_hogging * (3 * eg_rat / ((0.5*lh_hogging**2) + 2 * 1.2 * eg_rat))
+
+            e_bending_sagg = dl_sagging * (6 * lh_sagging / (lh_sagging ** 2 + 2 * eg_rat))
+            e_shear_sagg = dl_sagging * (3 * lh_sagging / (2 * lh_sagging ** 2 + 2 * 1.2 * eg_rat))
+
+            e_bending = np.max([e_bending_sagg, e_bending_hogg])
+            e_shear = np.max([e_shear_sagg, e_shear_hogg])
+            e_horizontal = 0  ## How do you calculate delta L??
+
+            e_bt = e_bending + e_horizontal
+            e_dt = e_horizontal / (2 + np.sqrt((e_horizontal / 2) ** 2 + e_shear ** 2))
+            e_tot = np.max([e_bt, e_dt])
+
+            dict_['results'][wall_] = {'e_tot': e_tot,
+                                    'e_bt': e_bt,
+                                    'e_dt': e_dt,
+                                    'e_bh': e_bending_hogg,
+                                    'e_bs': e_bending_sagg,
+                                    'e_sh': e_shear_hogg,
+                                    'e_ss': e_shear_sagg,
+                                    'e_h': e_horizontal,
+                                    'l_h': l_hogging,
+                                    'l_s': l_sagging,
+                                    'dw_h': dw_hogging,
+                                    'dw_s': dw_sagging,}
+            
+            dict_['variables'][wall_] = {'xinflection': x_inflection,
+                                        'xlimit': x_limit,
+                                        'limitline': limit_line,
+                                        's_vmax': params['s_vmax']}
+
     
         if method == 'measurements':
             W = object.process['int'][wall_]['ax']
@@ -53,59 +134,10 @@ def LTSM(object, limit_line, eg_rat: int = 11, method: str = 'greenfield'):
             x_inflection = X[ind]
             w_inflection = W[ind] 
 
-        # -------------------------- Compute LTSM parameters ------------------------- #
-        w_current = interp1d(X, W, kind = 'nearest')(length)
-        x_limit = np.abs(interp1d(W, X, kind = 'nearest')(limit_line))
-        l_hogging = max((length - x_inflection) * 1e3, 0)
-        lh_hogging = l_hogging / height
-        dw_hogging = np.abs(w_current - w_inflection) ## location of building
-        dl_hogging = 0 if l_hogging == 0 else dw_hogging / l_hogging
-
-        l_sagging = length * 1e3 - l_hogging
-        lh_sagging = l_sagging / (height / 2)
-        dw_sagging = np.abs(W.min() + w_inflection)
-        dl_sagging = dw_sagging / l_sagging
-
-        ratio = height/ 2*1e3
-        uxy = (wall['phi'][-1] - wall['phi'][0])* 1000 * ratio
-        e_horizontal = uxy / length*1e3
-        # -------------------------- Compute strain measures ------------------------- #
-        e_bending_hogg = dl_hogging * (3 * lh_hogging / (1 / 4 * lh_hogging ** 2 + 1.2 * eg_rat))
-        e_shear_hogg = dl_hogging * (3 * eg_rat / ((0.5*lh_hogging**2) + 2 * 1.2 * eg_rat))
-
-        e_bending_sagg = dl_sagging * (6 * lh_sagging / (lh_sagging ** 2 + 2 * eg_rat))
-        e_shear_sagg = dl_sagging * (3 * lh_sagging / (2 * lh_sagging ** 2 + 2 * 1.2 * eg_rat))
-
-        e_bending = np.max([e_bending_sagg, e_bending_hogg])
-        e_shear = np.max([e_shear_sagg, e_shear_hogg])
-        e_horizontal = 0  ## How do you calculate delta L
-
-        e_bt = e_bending + e_horizontal
-        e_dt = e_horizontal / (2 + np.sqrt((e_horizontal / 2) ** 2 + e_shear ** 2))
-        e_tot = np.max([e_bt, e_dt])
-
-            
-        dict_['results'][wall_] = {'e_tot': e_tot,
-                                'e_bt': e_bt,
-                                'e_dt': e_dt,
-                                'e_bh': e_bending_hogg,
-                                'e_bs': e_bending_sagg,
-                                'e_sh': e_shear_hogg,
-                                'e_ss': e_shear_sagg,
-                                'e_h': e_horizontal,
-                                'l_h': l_hogging,
-                                'l_s': l_sagging,
-                                'dw_h': dw_hogging,
-                                'dw_s': dw_sagging,}
-        
         dict_['values'][wall_] = {'x': X,
                                 'w': W,}
-        
-        dict_['variables'][wall_] = {'xinflection': x_inflection,
-                                    'xlimit': x_limit,
-                                    'limitline': limit_line,
-                                    's_vmax': params['s_vmax']} 
+         
     
-    object.process['ltsm'] = dict_ 
+    
             
 

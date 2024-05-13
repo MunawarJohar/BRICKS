@@ -1,9 +1,70 @@
 import numpy as np
 from .utils import hwall_length
 
+def find_inflection_points_and_regions(wallz, coords):
+    """
+    Finds the inflection points and regions of a wall based on the given wallz and coords.
+
+    Parameters:
+    - wallz (array-like):  A list of the subsidence values along the wall length..
+    - coords (array-like): The x-coordinates of the wall.
+
+    Returns:
+    A dictionary with the following keys:
+    - 'inflection_points' (list): The x-coordinates of the inflection points.
+    - 'regions' (list): The regions of the wall (-1 for hogging, 1 for sagging).
+
+    Note:
+    - The wallz and coords should have the same length.
+    - The function assumes that the wall is represented by a series of points.
+    - The function requires at least 3 points to calculate inflection points and regions.
+    """
+    n = len(coords)
+    inflection_points = []
+    region_length = []
+    regions = []  # -1 for hogging, 1 for sagging
+
+    if n < 3:
+        return {'inflection_points': [], 'regions': [0], 'region_lengths': [coords[-1] - coords[0]]}
+
+    # Calculate derivatives using np.gradient
+    first_derivatives = np.gradient(wallz, coords)
+    second_derivatives = np.gradient(first_derivatives, coords)
+
+    # Initial region setup
+    current_region_start_index = 0
+    current_region_type = -1 if second_derivatives[0] > 0 else 1
+    regions.append(current_region_type)
+
+    for i in range(1, len(second_derivatives)):
+        if second_derivatives[i] * second_derivatives[i-1] < 0:
+            inflection_point = 0.5 * (coords[i] + coords[i+1])
+            inflection_points.append(inflection_point)
+            region_length.append(coords[i] - coords[current_region_start_index])
+            current_region_start_index = i
+            current_region_type = -1 if second_derivatives[i] > 0 else 1
+            regions.append(current_region_type)
+
+    # Handle last region
+    region_length.append(coords[-1] - coords[current_region_start_index])
+
+    return {'inflection_points': inflection_points, 'regions': regions, 'region_lengths': region_length}
+
 def max_relative_displacement(wallz, coords):
+    """
+    Calculates the maximum relative displacement between two points on a wall.
+
+    Args:
+        wallz (list): A list of the subsidence values along the wall length.
+        coords (list): A list of coordinates corresponding to the wall heights.
+
+    Returns:
+        tuple: A tuple containing the maximum relative displacement and the inflection regions.
+    """
     n = len(coords)
     max_disp = 0
+    
+    infl_dict_ = find_inflection_points_and_regions(wallz,coords)
     for i in range(n):
         for j in range(i+1, n):
             x1, y1 = coords[i], wallz[i]
@@ -14,12 +75,12 @@ def max_relative_displacement(wallz, coords):
                 for k in range(min(i,j), max(i,j)+1):
                     xk, yk = coords[k], wallz[k]
                     line_y = m * xk + b
-                    disp = abs(line_y - yk)
-                    if disp > max_disp:
+                    disp = line_y - yk
+                    if abs(disp) > abs(max_disp):
                         max_disp = disp
-
-    return max_disp
-
+                        
+    return max_disp, infl_dict_
+            
 def calculate_phi(wallz, coords):
     ind_min = np.argmin(wallz)
     wmin = wallz[ind_min]
@@ -36,7 +97,6 @@ def calculate_phi(wallz, coords):
         phi = None
     return phi
 
-
 def calculate_omega(wallz, x_coords):
     inflection_indices = np.where(np.diff(np.sign(np.diff(wallz))) != 0)[0] + 1
     if len(inflection_indices) < 2:
@@ -47,7 +107,6 @@ def calculate_omega(wallz, x_coords):
         x_inflection = x_coords[inflection_indices]
         omega = np.arctan(np.abs(np.diff(wallz)[0]) / ((x_inflection[longest_period_index] - x_inflection[longest_period_index - 1])*1000))
     return omega
-
 
 def compute_sri(house, wall_num, key):
     """
@@ -79,15 +138,18 @@ def compute_sri(house, wall_num, key):
         x = wall['y']
 
     s_vmax = min(wallz) - max(wallz)
-    d_deflection = max_relative_displacement(wallz, x)
+    d_deflection, infl_dict_ = max_relative_displacement(wallz, x)
     phi = calculate_phi(wallz, x)
     omega = calculate_omega(wallz, x)
     beta = abs(phi) + abs(omega)
 
-    return {'Smax': abs(min(wall['z'])),
+    sri =  {'Smax': abs(min(wall['z'])),
             'dSmax': abs(s_vmax),
-            'D/L': abs(s_vmax)/length,
+            'Defrat': abs(s_vmax)/length,
             'drat': abs(d_deflection),
             'omega': abs(omega),
             'phi': abs(phi),
             'beta': abs(beta)}
+    
+    return sri, infl_dict_
+

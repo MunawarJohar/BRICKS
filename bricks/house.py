@@ -33,17 +33,14 @@ class house:
         self.gaussian = {}
         
         # --------------------------------- Geometry --------------------------------- #
-        x_boundary = np.concatenate([self.house[wall]["x"] for wall in self.house])
-        y_boundary = np.concatenate([self.house[wall]["y"] for wall in self.house])
-        z_boundary = np.concatenate([self.house[wall]["z"] for wall in self.house])
-        self.boundary = [x_boundary, y_boundary, z_boundary]
         vertices = [[self.house[wall]['x'].min() if x else self.house[wall]['x'].max(), 
                             self.house[wall]['y'].min() if y else self.house[wall]['y'].max(), 
                             z] 
                             for wall in self.house
                             for x, y, z in itertools.product([0,10], repeat=3)] + [[0,0,0]] # get all vertices of the walls
         vertices = list(set(tuple(vertex) for vertex in vertices))
-        self.vertices = sorted(vertices, key=lambda x: (x[2], x[1], x[0]))
+        self.vertices = {'3D' :sorted(vertices, key=lambda x: (x[2], x[1], x[0])),
+                         '2D' :sorted(vertices, key=lambda x: (x[2], x[1]))}
         
         # -------------------------------- Dataframes -------------------------------- #
         self.dataframes = {}
@@ -60,11 +57,10 @@ class house:
         Returns:
             Assigns OBJECT.soil & OBJECT.process
         """
-        for wall in self.house:
-            x_min = min(self.house[wall]["x"].min() for wall in self.house)
-            x_max = max(self.house[wall]["x"].max() for wall in self.house)
-            y_min = min(self.house[wall]["y"].min() for wall in self.house)
-            y_max = max(self.house[wall]["y"].max() for wall in self.house)
+        x_min = min(self.house[wall]["x"].min() for wall in self.house)
+        x_max = max(self.house[wall]["x"].max() for wall in self.house)
+        y_min = min(self.house[wall]["y"].min() for wall in self.house)
+        y_max = max(self.house[wall]["y"].max() for wall in self.house)
 
         # -------------------------------- create mesh ------------------------------- #
         x_lin = np.linspace(x_min, x_max, 100)
@@ -138,6 +134,7 @@ class house:
         # ---------------------------- fit gaussian shapes --------------------------- #
         for i, wall in enumerate(self.house):
             x_data = self.process['int'][wall]["ax"]
+            x_data_rel = self.process['int'][wall]["ax_rel"]
             y_data = self.process['int'][wall]["z_lin"]
 
             # Drop nan values
@@ -147,7 +144,7 @@ class house:
 
             index = np.argmin(y_data)
             y_normal = np.concatenate((y_data[:index + 1], y_data[:index][::-1]))
-            x_gauss = np.concatenate((-x_data[:index + 1][::-1], x_data[:index]))
+            x_gauss = np.concatenate((-x_data_rel[:index + 1][::-1], x_data_rel[:index]))
             x_data = np.concatenate((x_data[:index + 1], x_data[index] + x_data[:index + 1]))
 
             optimized_parameters, params_cov = curve_fit(f=function, xdata=x_gauss, ydata=y_normal)
@@ -191,10 +188,12 @@ class house:
             dict: The updated object with the SRI values stored in the `SRI` attribute.
         """
         self.soil['sri'] = {}
-        
+        self.soil['shape'] = {}
+
         for wall_num, key in enumerate(self.house):
-            sri_data = compute_sri(self.house, wall_num, key)
+            sri_data, infl_dict_ = compute_sri(self.house, wall_num, key)
             self.soil['sri'][key] = sri_data
+            self.soil['shape'][key] = infl_dict_
 
     def process_dfs(self, curr_dic_list, names):
         """
