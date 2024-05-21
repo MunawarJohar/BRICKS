@@ -1,13 +1,14 @@
 import itertools
+from collections import defaultdict
 
 import numpy as np
 from pandas import DataFrame
 from scipy.interpolate import griddata
 from scipy.optimize import curve_fit
-from scipy.spatial import Delaunay
+from matplotlib.path import Path
 
-from .assessment.utils import get_range, find_root_iterative, gaussian_shape, interpolate_2d 
-from .assessment import compute_sri, compute_damage_parameter
+from .assessment.utils import find_root_iterative, gaussian_shape, interpolate_2d 
+from .assessment import compute_sri
 
 class house:
     def __init__(self, measurements):
@@ -21,10 +22,7 @@ class house:
         house (dict): The measurements of the house.
         soil (None): Placeholder for soil information.
         gaussian (None): Placeholder for Gaussian information.
-        boundary (list): The boundary coordinates of the house.
         vertices (list): The vertices of the house walls.
-        gshapes (None): Placeholder for gshapes information.
-        dfltsm (None): Placeholder for dfltsm information.
         """ 
         self.house = measurements
         self.state = None
@@ -32,17 +30,7 @@ class house:
         self.soil = {}
         self.gaussian = {}
         
-        # --------------------------------- Geometry --------------------------------- #
-        vertices = [[self.house[wall]['x'].min() if x else self.house[wall]['x'].max(), 
-                            self.house[wall]['y'].min() if y else self.house[wall]['y'].max(), 
-                            z] 
-                            for wall in self.house
-                            for x, y, z in itertools.product([0,10], repeat=3)] + [[0,0,0]] # get all vertices of the walls
-        vertices = list(set(tuple(vertex) for vertex in vertices))
-        self.vertices = {'3D' :sorted(vertices, key=lambda x: (x[2], x[1], x[0])),
-                         '2D' :sorted(vertices, key=lambda x: (x[2], x[1]))}
-        
-        # -------------------------------- Dataframes -------------------------------- #
+        self.vertices = self.process_vertices()
         self.dataframes = {}
 
     def interpolate(self):
@@ -57,30 +45,33 @@ class house:
         Returns:
             Assigns OBJECT.soil & OBJECT.process
         """
-        x_min = min(self.house[wall]["x"].min() for wall in self.house)
-        x_max = max(self.house[wall]["x"].max() for wall in self.house)
-        y_min = min(self.house[wall]["y"].min() for wall in self.house)
-        y_max = max(self.house[wall]["y"].max() for wall in self.house)
+        x_boundary = np.concatenate([self.house[wall]["x"] for wall in self.house])
+        y_boundary = np.concatenate([self.house[wall]["y"] for wall in self.house])
+        z_boundary = np.concatenate([self.house[wall]["z"] for wall in self.house])
 
+        x_min, x_max = np.min(x_boundary), np.max(x_boundary)
+        y_min, y_max = np.min(y_boundary), np.max(y_boundary)
+
+        x_lin = np.linspace(x_min, x_max, 1000)
+        y_lin = np.linspace(y_min, y_max, 1000)
         # -------------------------------- create mesh ------------------------------- #
-        x_lin = np.linspace(x_min, x_max, 100)
-        y_lin = np.linspace(y_min, y_max, 100)
-        x_boundary, y_boundary, z_boundary = self.boundary
-        points = np.column_stack((x_boundary, y_boundary))
-        hull = Delaunay(points)
+        perimeter_path = Path(self.vertices['2D'])
         x_mesh, y_mesh = np.meshgrid(x_lin, y_lin)
         mesh_points = np.column_stack((x_mesh.ravel(), y_mesh.ravel()))
-        inside_hull = hull.find_simplex(mesh_points) >= 0
+
+        epsilon = 1e-2  # Small buffer to include boundary points, value based on mm
+        inside_hull = perimeter_path.contains_points(mesh_points, radius=-epsilon)
         inside_hull = inside_hull.reshape(x_mesh.shape)
         # ---------------------------- Interpolate surface --------------------------- #
         z_lin = interpolate_2d(x_boundary, y_boundary, z_boundary, x_mesh, y_mesh, 'linear')
         z_qint = interpolate_2d(x_boundary, y_boundary, z_boundary, x_mesh, y_mesh, 'cubic')
 
+
         z_lin[~inside_hull] = np.nan
         z_qint[~inside_hull] = np.nan
-        # ------------------------------- Process walls ------------------------------ #
+
         self.process['int'] = {}
-        for wall in self.house:
+        for wall in self.house:  #Store values on a per wall basis
             x_start, x_end = self.house[wall]['x'][0], self.house[wall]['x'][-1]
             y_start, y_end = self.house[wall]['y'][0], self.house[wall]['y'][-1]
 
@@ -90,21 +81,21 @@ class house:
             y_end_idx = np.argmin(np.abs(y_lin - y_end)) + 1
 
             if np.all(self.house[wall]['x'] == self.house[wall]['x'][0]):  # wall is along the y axis
-                    z_lin_slice = z_lin[x_start_idx:x_end_idx, y_start_idx:y_end_idx].flatten()
-                    z_qint_slice = z_qint[x_start_idx:x_end_idx, y_start_idx:y_end_idx].flatten()
+                    z_lin_slice = z_lin[y_start_idx:y_end_idx, x_start_idx:x_end_idx].flatten()
+                    z_qint_slice = z_qint[y_start_idx:y_end_idx, x_start_idx:x_end_idx].flatten()
                     ax = y_lin[y_start_idx:y_end_idx]
                     ax_rel = ax - y_lin[y_start_idx]   
                     self.process['int'][wall] = {'z_lin': z_lin_slice,
-                                                  'z_q': z_qint_slice,
+                                                    'z_q': z_qint_slice,
                                                     'ax': ax,
                                                     'ax_rel': ax_rel}
             else:  # wall is along the x axis
-                z_lin_slice = z_lin[x_start_idx:x_end_idx, y_start_idx:y_end_idx].flatten()
-                z_qint_slice = z_qint[x_start_idx:x_end_idx, y_start_idx:y_end_idx].flatten()
+                z_lin_slice = z_lin[y_start_idx:y_end_idx, x_start_idx:x_end_idx].flatten()
+                z_qint_slice = z_qint[y_start_idx:y_end_idx,x_start_idx:x_end_idx].flatten()
                 ax = x_lin[x_start_idx:x_end_idx]
                 ax_rel = ax - x_lin[x_start_idx]
                 self.process['int'][wall] = {'z_lin': z_lin_slice,
-                                              'z_q': z_qint_slice,
+                                                'z_q': z_qint_slice,
                                                 'ax': ax,
                                                 'ax_rel': ax_rel}
 
@@ -207,5 +198,68 @@ class house:
             columns = list(curr_dic[next(iter(curr_dic))].keys())
             df = DataFrame(data_values, columns=columns)
             self.dataframes[names[i]] = df
+
+    @staticmethod
+    def arrange_vertices_contiguously(keys):
+        """
+        Arrange the vertices contiguously based on their coordinates. Only works for perpendicular cellular structures
+
+        Args:
+            keys (list): A list of keys representing the vertices.
+
+        Returns:
+            list: A list of keys representing the vertices arranged contiguously.
+        """
+        arranged_keys = []
+        remaining_keys = keys[:]
+
+        current_key = remaining_keys.pop(0)
+        arranged_keys.append(current_key)
+        
+        while remaining_keys:
+            last_key = arranged_keys[-1]
+            next_key = None
+            for key in remaining_keys:
+                if key[0] == last_key[0]:
+                    next_key = key
+                    break 
+            if next_key is None:
+                for key in remaining_keys:
+                    if key[1] == last_key[1]:
+                        next_key = key
+                        break
+            if next_key:
+                arranged_keys.append(next_key)
+                remaining_keys.remove(next_key)
+            else:
+                next_key = remaining_keys.pop(0)
+                arranged_keys.append(next_key)
+        return arranged_keys
+
+    def process_vertices(self):
+        """
+        Process the vertices of the house walls.
+
+        ## Returns:
+            dict: The updated object with the vertices stored in the `vertices` attribute.
+        """
+        vertices = [[self.house[wall]['x'].min() if x else self.house[wall]['x'].max(), 
+                            self.house[wall]['y'].min() if y else self.house[wall]['y'].max(), 
+                            z] 
+                            for wall in self.house
+                            for x, y, z in itertools.product([0,10], repeat=3)] + [[0,0,0]] # get all vertices of the walls
+        vertices = list(set(tuple(vertex) for vertex in vertices))
+        vertices = sorted(vertices, key=lambda x: (x[2], x[1], x[0]))
+        grouped_vertices = defaultdict(list)
+        for x, y, z in vertices:
+            grouped_vertices[(x, y)].append((x, y, z))
+        for key in grouped_vertices:
+            grouped_vertices[key].sort(key=lambda v: v[2])
+
+        sorted_keys = sorted(grouped_vertices.keys())
+        arranged_keys = house.arrange_vertices_contiguously(sorted_keys) 
+
+        return {'3D' :[vertex for key in arranged_keys for vertex in grouped_vertices[key]],
+                                '2D' : [(key[0], key[1]) for key in arranged_keys] }
 
         

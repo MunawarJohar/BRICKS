@@ -354,7 +354,7 @@ def EM_plot(report):
         heatmap = go.Heatmap(z=data_matrix,
                                 x=sources,
                                 y=wall_param_labels,
-                                colorscale='RdYlGn_r',  
+                                    colorscale='RdYlGn_r',  
                                 zmin=0,
                                 zmax=5,
                                 colorbar=dict(title='Damage<br> Level'),
