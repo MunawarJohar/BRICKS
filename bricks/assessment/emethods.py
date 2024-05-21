@@ -1,6 +1,6 @@
 from typing import List, Union, Dict
 
-from .empirical_limits import ParameterLimits, empirical_limits
+from .elimits_db.elimits_sri import ParameterLimits, empirical_limits
 
 def evaluate_wall(wall_values: Dict[str, float], empirical_limits: ParameterLimits) -> Dict[str, List[Dict]]:
     """

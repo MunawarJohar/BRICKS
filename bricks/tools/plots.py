@@ -7,7 +7,7 @@ from dash import Dash, dcc, html
 from plotly.subplots import make_subplots
 from matplotlib.colors import LinearSegmentedColormap
 
-from bricks.house import gaussian_shape
+from ..assessment.utils import gaussian_shape
 
 def plot_surface(x_mesh, y_mesh, z_lin, z_qint):
 
@@ -69,8 +69,6 @@ def wall_displacement(OBJECT):
     fig.update_layout(title='Displacement profile of different Walls',
                     xaxis_title='Wall length [m]',
                     yaxis_title='Displacement W[mm]',
-                    height = 600,
-                    width = 1500,
                     legend=dict(x=1.05, y=1, traceorder="normal"), 
                     template='plotly_white',)
     fig.show()
@@ -251,8 +249,6 @@ def subsidence(OBJECT, building = False, soil = False, deformation = False) -> g
                                             name='Approximated subsidence profile',
                                             line=dict(color=color[0], dash='dash')))
     
-    
-
     # ------------------------ Handle plot functionalities ----------------------- #
     z_min = -min(OBJECT.house[wall]["z"].min() for wall in OBJECT.house)/100
     z_rat = z_min / x_mesh.max()
@@ -276,10 +272,6 @@ def subsidence(OBJECT, building = False, soil = False, deformation = False) -> g
             ticks="inside"
         ),
         showlegend = False,
-        # legend=dict(
-        #     yanchor="top",
-        #     y=0.3
-        # ),
         template='plotly_white'
     )
 
@@ -289,6 +281,32 @@ def subsidence(OBJECT, building = False, soil = False, deformation = False) -> g
             trace.update(showlegend=False)
             if (trace.name in names) else names.add(trace.name))
     fig.show()
+
+def subsurface(ijsselsteinseweg, *params):
+    app = Dash(__name__)
+ 
+    fig_wall_displacement = wall_displacement(ijsselsteinseweg)
+    fig_plot_surface = plot_surface(*params)
+    fig_subsidence = subsidence(ijsselsteinseweg, building=False, soil=True, deformation=True)
+
+    app.layout = html.Div([
+        dcc.Tabs([
+            dcc.Tab(label='Wall Displacement', children=[
+                dcc.Graph(figure=fig_wall_displacement)
+            ]),
+            dcc.Tab(label='Plot Surface', children=[
+                dcc.Graph(figure=fig_plot_surface)
+            ]),
+            dcc.Tab(label='Subsidence', children=[
+                dcc.Graph(figure=fig_subsidence)
+            ])
+        ])
+    ])
+    if __name__ == '__main__':
+        app.run_server(debug=False)
+    return app
+
+
 
 def compute_param(strain_value):
     colors = ['#BBE3AB', '#FAFAB1', '#DF7E7D']  # Colors corresponding to thresholds
@@ -383,27 +401,32 @@ def EM_plot(report):
         app.run_server(debug=False)
     return app
 
-def LTSM_plot(object):        
-        house = object.house
-        app = Dash(__name__)
+def LTSM_plot(object):
+    house = object.house
+    app = Dash(__name__)
+    
+    assess_types = list(object.assessment['ltsm'].keys())
+    all_assessment_tabs = []
+
+    tab_style = {'fontFamily': 'Arial, sans-serif', 'color': '#3a4d6b'}
+    
+    for assessment in assess_types:
         figs = []
-        
-        for i,wall in enumerate(house):
+        wltsm = object.assessment['ltsm'][assessment]
+        for i, wall in enumerate(house):
             # Unpack values
             h = object.house[wall]['height']
             int = object.process['int'][wall]
 
-            wltsm = object.process['ltsm']
             strain = wltsm['results'][wall]['e_tot']
             ltsm_params = wltsm['variables'][wall]
             ltsm_values = wltsm['values'][wall]
-            
+
             param = [ltsm_params, ltsm_values]
             for dict_ in param:
                 for key, value in dict_.items():
                     globals()[key] = value
-            
-            #Produce plots
+
             ecolor, cat = compute_param(strain)
             fig = make_subplots(rows=2, cols=1,
                                 vertical_spacing=0.1,
@@ -412,38 +435,40 @@ def LTSM_plot(object):
                                 x_title='Length [m]',
                                 y_title='Height [m,mm]',
                                 subplot_titles=('Relative Wall position', 'Subsidence profile'))
-            
-            #Subsidence profile trace
-            fig.add_trace(go.Scatter(x= int['ax'][::-1], 
-                                    y= int["z_lin"],  
-                                    mode='lines', 
-                                    name='Subsidence profile'), 
-                                    row=2, col=1)
-            # fig.add_trace(go.Scatter(x=x, 
-            #                         y=w, 
-            #                         mode='lines', 
-            #                         name='Gaussian profile aproximation'), 
-            #                         row=2, col=1)
+
+            # Subsidence profile trace
+            if assessment == 'measurements':
+                fig.add_trace(go.Scatter(x=int['ax_rel'][::-1],
+                                         y=int["z_lin"],
+                                         mode='lines',
+                                         name='Subsidence profile'),
+                              row=2, col=1)
+            if assessment == 'greenfield':
+                fig.add_trace(go.Scatter(x=x,
+                                         y=w,
+                                         mode='lines',
+                                         name='Gaussian profile approximation'),
+                              row=2, col=1)
 
             # Inflection traces
             for z in [-xinflection, xinflection]:
                 fig.add_trace(go.Scatter(x=[z, z], y=[0, h], mode='lines', name='Inflection point',
-                                        line=dict(color='black', width=1, dash='dash')), row=1, col=1)
-                
+                                         line=dict(color='black', width=1, dash='dash')), row=1, col=1)
+
                 fig.add_trace(go.Scatter(x=[z, z], y=[w.min(), w.max()], mode='lines', name='Inflection point',
-                                        line=dict(color='black', width=1, dash='dash')), row=2, col=1)
+                                         line=dict(color='black', width=1, dash='dash')), row=2, col=1)
 
             for influence in [-xlimit, xlimit]:
                 fig.add_trace(go.Scatter(x=[influence, influence], y=[0, h], mode='lines', name='Influence area',
-                                        line=dict(color='black', width=1, dash='dashdot')), row=1, col=1)
-                
+                                         line=dict(color='black', width=1, dash='dashdot')), row=1, col=1)
+
                 fig.add_trace(go.Scatter(x=[influence, influence], y=[w.min(), w.max()], mode='lines', name='Influence area',
-                                        line=dict(color='black', width=1, dash='dashdot')), row=2, col=1)
-            fig.add_trace(go.Scatter(x=x, 
-                                y=np.full(len(x), limitline), 
-                                mode='lines', name=f'Limit Line [{limitline} mm]',
-                                line=dict(color='black', dash='dash', width=1)), 
-                                row=2, col=1)
+                                         line=dict(color='black', width=1, dash='dashdot')), row=2, col=1)
+            fig.add_trace(go.Scatter(x=x,
+                                     y=np.full(len(x), limitline),
+                                     mode='lines', name=f'Limit Line [{limitline} mm]',
+                                     line=dict(color='black', dash='dash', width=1)),
+                          row=2, col=1)
 
             if i % 2 == 0:  # Wall is along the y axis
                 xi = object.house[wall]['y'].max()
@@ -451,37 +476,36 @@ def LTSM_plot(object):
             else:
                 xi = object.house[wall]['x'].max()
                 xj = object.house[wall]['x'].min()
-    
+
             # Plot wall shape
             fig.add_shape(
                 type="rect",
-                x0= 0 , y0=0,
-                x1= xi - xj, y1=h,
-                fillcolor= ecolor,
+                x0=0, y0=0,
+                x1=xi - xj, y1=h,
+                fillcolor=ecolor,
                 row=1, col=1
             )
             fig.update_layout(title=f'LTSM {wall} | e_tot = {strain:.2e} DL = {cat}',
-                            legend=dict(traceorder="normal"), 
-                            template='plotly_white')
-            
-            #Remove duplicate legend labels
+                              legend=dict(traceorder="normal"),
+                              template='plotly_white')
+
+            # Remove duplicate legend labels
             names = set()
             fig.for_each_trace(
                 lambda trace:
-                    trace.update(showlegend=False)
-                    if (trace.name in names) else names.add(trace.name))
+                trace.update(showlegend=False)
+                if (trace.name in names) else names.add(trace.name))
             figs.append(fig)
 
-        tab_heading_style = {
-                'fontFamily': 'Arial, sans-serif', 
-                'color': '#3a4d6b'  
-            }
-        tabs_content = [dcc.Tab(label=f"Wall {i+1}", children=[dcc.Graph(figure=figs[i])], style=tab_heading_style, selected_style=tab_heading_style)  for i in range(len(house))]
-        app.layout = html.Div([
-            dcc.Tabs(children=tabs_content)
-        ])
+        wall_tabs = [dcc.Tab(label=f"Wall {i+1}", children=[dcc.Graph(figure=fig)], style= tab_style, selected_style= tab_style ) for i, fig in enumerate(figs)]
+        assessment_tab = dcc.Tab(label=f"{assessment.capitalize()} assessment", children=[dcc.Tabs(children=wall_tabs)], style=tab_style, selected_style= tab_style)
+        all_assessment_tabs.append(assessment_tab)
 
-        return app
+    app.layout = html.Div([
+        dcc.Tabs(children=all_assessment_tabs)
+    ])
+
+    return app
 
 
         

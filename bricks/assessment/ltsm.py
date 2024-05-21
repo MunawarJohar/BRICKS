@@ -1,40 +1,11 @@
-import traceback
+from typing import List, Union, Dict
 
 import numpy as np
 from scipy.interpolate import interp1d
 
 from .utils import gaussian_shape, hwall_length
-
-def compute_strain_measure(height, wall, length, dl_hogging, lh_hogging, eg_rat, dl_sagging, lh_sagging, dw_hogging, dw_sagging):
-    ratio = height / 2 * 1e3
-    uxy = (wall['phi'][-1] - wall['phi'][0]) * 1000 * ratio
-    e_horizontal = uxy / length * 1e3
-
-    e_bending_hogg = dl_hogging * (3 * lh_hogging / (1 / 4 * lh_hogging ** 2 + 1.2 * eg_rat))
-    e_shear_hogg = dl_hogging * (3 * eg_rat / ((0.5 * lh_hogging ** 2) + 2 * 1.2 * eg_rat))
-
-    e_bending_sagg = dl_sagging * (6 * lh_sagging / (lh_sagging ** 2 + 2 * eg_rat))
-    e_shear_sagg = dl_sagging * (3 * lh_sagging / (2 * lh_sagging ** 2 + 2 * 1.2 * eg_rat))
-
-    e_bending = np.max([e_bending_sagg, e_bending_hogg])
-    e_shear = np.max([e_shear_sagg, e_shear_hogg])
-    e_horizontal = 0  ## How do you calculate delta L??
-
-    e_bt = e_bending + e_horizontal
-    e_dt = e_horizontal / (2 + np.sqrt((e_horizontal / 2) ** 2 + e_shear ** 2))
-    e_tot = np.max([e_bt, e_dt])
-
-    strain =  {
-        'e_tot': e_tot,
-        'e_bt': e_bt,
-        'e_dt': e_dt,
-        'e_bh': e_bending_hogg,
-        'e_bs': e_bending_sagg,
-        'e_sh': e_shear_hogg,
-        'e_ss': e_shear_sagg,
-        'e_h': e_horizontal,
-    }
-
+from .emethods import evaluate_wall
+from .elimits_db.elimits_epsilon import ParameterLimits, empirical_limits
 
 def LTSM(object, limit_line, eg_rat: int = 11, method: str = 'greenfield'):
     """
@@ -59,7 +30,8 @@ def LTSM(object, limit_line, eg_rat: int = 11, method: str = 'greenfield'):
     - xj (float): The xj value.
     - df (DataFrame): The input data.
     """
-    dict_ = {'results': {}, 'values': {}, 'variables': {}}
+    dict_ = {'report': {}, 'results': {}, 'values': {}, 'variables': {}}
+    object.assessment['ltsm'] = {}
 
     for wall_ in object.house:
         i = list(object.house.keys()).index(wall_) + 1
@@ -69,6 +41,7 @@ def LTSM(object, limit_line, eg_rat: int = 11, method: str = 'greenfield'):
         
         # ----------------------------- Determine method ----------------------------- #
         if method == 'greenfield':
+
             params = object.process['params'][wall_]
             W = gaussian_shape(params['x_gauss'], params['s_vmax'], params['x_inflection'])
             X = params['x_gauss']
@@ -106,6 +79,9 @@ def LTSM(object, limit_line, eg_rat: int = 11, method: str = 'greenfield'):
             e_dt = e_horizontal / (2 + np.sqrt((e_horizontal / 2) ** 2 + e_shear ** 2))
             e_tot = np.max([e_bt, e_dt])
 
+            strain_val = {'epsilon': e_tot}
+            dict_['report'][wall_] = evaluate_wall(strain_val, empirical_limits = empirical_limits())
+
             dict_['results'][wall_] = {'e_tot': e_tot,
                                     'e_bt': e_bt,
                                     'e_dt': e_dt,
@@ -123,7 +99,9 @@ def LTSM(object, limit_line, eg_rat: int = 11, method: str = 'greenfield'):
                                         'xlimit': x_limit,
                                         'limitline': limit_line,
                                         's_vmax': params['s_vmax']}
-
+            
+            dict_['values'][wall_] = {'x': X,
+                                'w': W,}
     
         if method == 'measurements':
             W = object.process['int'][wall_]['ax']
@@ -134,8 +112,10 @@ def LTSM(object, limit_line, eg_rat: int = 11, method: str = 'greenfield'):
             x_inflection = X[ind]
             w_inflection = W[ind] 
 
-        dict_['values'][wall_] = {'x': X,
-                                'w': W,}
+    object.assessment['ltsm']['greenfield'] = dict_
+    return dict_
+
+        
          
     
     

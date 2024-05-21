@@ -29,6 +29,7 @@ class house:
         self.process = {}
         self.soil = {}
         self.gaussian = {}
+        self.assessment = {}
         
         self.vertices = self.process_vertices()
         self.dataframes = {}
