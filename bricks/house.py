@@ -33,7 +33,7 @@ class house:
         self.vertices = self.process_vertices()
         self.dataframes = {}
 
-    def interpolate(self):
+    def interpolate(self, tolerance = 1e-1):
         """
         Interpolates the surface of the house using linear and cubic interpolation.
 
@@ -52,15 +52,15 @@ class house:
         x_min, x_max = np.min(x_boundary), np.max(x_boundary)
         y_min, y_max = np.min(y_boundary), np.max(y_boundary)
 
-        x_lin = np.linspace(x_min, x_max, 1000)
-        y_lin = np.linspace(y_min, y_max, 1000)
+        definition = int(1/ tolerance*10) # Based on tolerance study on perimeter path in metres
+        x_lin = np.linspace(x_min, x_max, definition)
+        y_lin = np.linspace(y_min, y_max, definition)
         # -------------------------------- create mesh ------------------------------- #
         perimeter_path = Path(self.vertices['2D'])
         x_mesh, y_mesh = np.meshgrid(x_lin, y_lin)
         mesh_points = np.column_stack((x_mesh.ravel(), y_mesh.ravel()))
 
-        epsilon = 1e-2  # Small buffer to include boundary points, value based on mm
-        inside_hull = perimeter_path.contains_points(mesh_points, radius=-epsilon)
+        inside_hull = perimeter_path.contains_points(mesh_points, radius=-tolerance)
         inside_hull = inside_hull.reshape(x_mesh.shape)
         # ---------------------------- Interpolate surface --------------------------- #
         z_lin = interpolate_2d(x_boundary, y_boundary, z_boundary, x_mesh, y_mesh, 'linear')
@@ -128,17 +128,25 @@ class house:
             x_data_rel = self.process['int'][wall]["ax_rel"]
             y_data = self.process['int'][wall]["z_lin"]
 
-            # Drop nan values
-            mask = np.isnan(y_data)
+            xmask = np.isnan(x_data)
+            ymask = np.isnan(y_data)
+            mask = xmask if sum(xmask) > sum(ymask) else ymask
+
             x_data = x_data[~mask]
+            x_data_rel = x_data_rel[~mask]
             y_data = y_data[~mask]
-
             index = np.argmin(y_data)
-            y_normal = np.concatenate((y_data[:index + 1], y_data[:index][::-1]))
-            x_gauss = np.concatenate((-x_data_rel[:index + 1][::-1], x_data_rel[:index]))
-            x_data = np.concatenate((x_data[:index + 1], x_data[index] + x_data[:index + 1]))
+                
+            if index == 0:
+                y_normal = np.concatenate((y_data[index:][::-1], y_data[index:]))
+                x_gauss = np.concatenate((-x_data_rel[index:][::-1], x_data_rel[index:]))
+                x_data = np.concatenate((x_data[index] - x_data[index:], x_data[index:]))
+            else:
+                y_normal = np.concatenate((y_data[:index + 1], y_data[:index][::-1]))
+                x_gauss = np.concatenate((-x_data_rel[:index + 1][::-1], x_data_rel[:index]))
+                x_data = np.concatenate((x_data[:index + 1], x_data[index] + x_data[:index + 1]))
 
-            optimized_parameters, params_cov = curve_fit(f=function, xdata=x_gauss, ydata=y_normal)
+            optimized_parameters, _ = curve_fit(f=function, xdata=x_gauss, ydata=y_normal)
             guess = find_root_iterative(i_guess, optimized_parameters, tolerance, step)
 
             x_gauss_2 = np.linspace(0, guess, 50)

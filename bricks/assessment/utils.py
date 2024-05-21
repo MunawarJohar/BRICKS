@@ -39,19 +39,3 @@ def hwall_length(wall,i):
         xi = wall['y'].min()
         xj = wall['y'].max()
     return xj - xi
-
-# def sort_boundary(points):
-# def unique_points(measurements):
-#     seen = set()
-#     unique = []
-#     for point in points:
-#         point_tuple = tuple(point)
-#         if point_tuple not in seen:
-#             seen.add(point_tuple)
-#             unique.append(point)
-#     return np.array(unique)
-
-# def sort_vertices_clockwise(points):
-#     centroid = points.mean(axis=0)
-#     angles = np.arctan2(points[:, 1] - centroid[1], points[:, 0] - centroid[0])
-#     return points[np.argsort(angles)]

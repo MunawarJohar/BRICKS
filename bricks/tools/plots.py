@@ -107,7 +107,7 @@ def building_traces(OBJECT):
                            'y': y_bound,
                            'h': h}}
 
-def subsidence(OBJECT, building = False, soil = False, deformation = True) -> go.Figure():
+def subsidence(OBJECT, building = False, soil = False, deformation = False) -> go.Figure():
     """
     Plot subsidence data.
 
@@ -124,7 +124,6 @@ def subsidence(OBJECT, building = False, soil = False, deformation = True) -> go
     x_mesh, y_mesh, z_lin, z_qint = OBJECT.soil['house'].values()
 
     if deformation: #Plot estimation of measured deformation surface
-        
         fig.add_trace(
             go.Surface(x=x_mesh,
                     y=y_mesh, 
@@ -147,7 +146,6 @@ def subsidence(OBJECT, building = False, soil = False, deformation = True) -> go
                                         mode='lines', 
                                         name='Wall',
                                         line = dict(color=color[0])))
-                
                 fig.add_trace(go.Scatter3d(x=np.full_like(wall['y'], wall['x'][0]), 
                                             y=wall['y'], 
                                             z= wall['z'],
@@ -192,29 +190,29 @@ def subsidence(OBJECT, building = False, soil = False, deformation = True) -> go
                             ),
         )
     
-    if building:
-        # ------------------------------------ FIX ----------------------------------- #
-        bwalls, bfloors = building_traces(OBJECT).values()
-        x, y, z = bwalls.values()
-        x_bound, y_bound, h = bfloors.values()
+    # if building:
+    #     # ------------------------------------ FIX ----------------------------------- #
+    #     bwalls, bfloors = building_traces(OBJECT).values()
+    #     x, y, z = bwalls.values()
+    #     x_bound, y_bound, h = bfloors.values()
 
-        wcolor = []
-        if OBJECT.dfltsm != None:
-            for z in z:strain = wltsm['results']['e_tot']
-            ecolor, cat = compute_param(strain)
-            wcolor.append(ecolor)
+    #     wcolor = []
+    #     if OBJECT.dfltsm != None:
+    #         for z in z:strain = wltsm['results']['e_tot']
+    #         ecolor, cat = compute_param(strain)
+    #         wcolor.append(ecolor)
             
-        fig.add_trace(go.Surface(x=x,
-                             y=y,
-                             z=z,
-                             colorscale=[[0, ecolor], [1, ecolor]],
-                             showscale=False))
-        for z in h:
-            fig.add_trace(go.Surface(x= x_bound,
-                                    y= y_bound,
-                                    z=z,
-                                    colorscale=[[0, 'rgba(0,0,255,0.5)'], [1, 'rgba(0,0,255,0.5)']], 
-                                    showscale=False))
+    #     fig.add_trace(go.Surface(x=x,
+    #                          y=y,
+    #                          z=z,
+    #                          colorscale=[[0, ecolor], [1, ecolor]],
+    #                          showscale=False))
+    #     for z in h:
+    #         fig.add_trace(go.Surface(x= x_bound,
+    #                                 y= y_bound,
+    #                                 z=z,
+    #                                 colorscale=[[0, 'rgba(0,0,255,0.5)'], [1, 'rgba(0,0,255,0.5)']], 
+    #                                 showscale=False))
 
     if soil:
         x_x =[]
