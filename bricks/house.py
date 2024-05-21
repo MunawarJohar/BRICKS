@@ -136,17 +136,17 @@ class house:
             x_data_rel = x_data_rel[~mask]
             y_data = y_data[~mask]
             index = np.argmin(y_data)
-                
+                    
             if index == 0:
                 y_normal = np.concatenate((y_data[index:][::-1], y_data[index:]))
                 x_gauss = np.concatenate((-x_data_rel[index:][::-1], x_data_rel[index:]))
-                x_data = np.concatenate((x_data[index] - x_data[index:], x_data[index:]))
+                x_data = np.concatenate((x_data[index] + (x_data[index] - x_data[index:]), x_data[index:]))
             else:
                 y_normal = np.concatenate((y_data[:index + 1], y_data[:index][::-1]))
                 x_gauss = np.concatenate((-x_data_rel[:index + 1][::-1], x_data_rel[:index]))
                 x_data = np.concatenate((x_data[:index + 1], x_data[index] + x_data[:index + 1]))
 
-            optimized_parameters, _ = curve_fit(f=function, xdata=x_gauss, ydata=y_normal)
+            optimized_parameters, _ = curve_fit(f=gaussian_shape, xdata=x_gauss, ydata=y_normal)
             guess = find_root_iterative(i_guess, optimized_parameters, tolerance, step)
 
             x_gauss_2 = np.linspace(0, guess, 50)
