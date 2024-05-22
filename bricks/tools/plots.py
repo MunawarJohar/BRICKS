@@ -2,11 +2,13 @@
 import numpy as np
 import plotly.graph_objects as go
 import plotly.figure_factory as ff
+from plotly.colors import get_colorscale
 
 from dash import Dash, dcc, html
 from plotly.subplots import make_subplots
-from matplotlib.colors import LinearSegmentedColormap
 
+
+from .utils import prepare_report, compute_param, get_color_from_scale
 from ..assessment.utils import gaussian_shape
 
 def plot_surface(x_mesh, y_mesh, z_lin, z_qint):
@@ -45,7 +47,7 @@ def plot_surface(x_mesh, y_mesh, z_lin, z_qint):
         template='plotly_white',
     )
 
-    fig.show()
+    return fig
 
 def wall_displacement(OBJECT):
     fig = go.Figure()
@@ -71,7 +73,7 @@ def wall_displacement(OBJECT):
                     yaxis_title='Displacement W[mm]',
                     legend=dict(x=1.05, y=1, traceorder="normal"), 
                     template='plotly_white',)
-    fig.show()
+    return fig
 
 def building_traces(OBJECT):
     
@@ -280,51 +282,37 @@ def subsidence(OBJECT, building = False, soil = False, deformation = False) -> g
         lambda trace:
             trace.update(showlegend=False)
             if (trace.name in names) else names.add(trace.name))
-    fig.show()
+    return fig
 
 def subsurface(ijsselsteinseweg, *params):
     app = Dash(__name__)
- 
-    fig_wall_displacement = wall_displacement(ijsselsteinseweg)
-    fig_plot_surface = plot_surface(*params)
-    fig_subsidence = subsidence(ijsselsteinseweg, building=False, soil=True, deformation=True)
+
+    figures_info = [
+        ('Wall Displacement', wall_displacement(ijsselsteinseweg)),
+        ('Plot Surface', plot_surface(*params)),
+        ('Subsidence', subsidence(ijsselsteinseweg, building=False, soil=True, deformation=True))
+    ]
+    tab_style = {
+        'fontFamily': 'Arial, sans-serif',
+        'color': '#3a4d6b'
+    }
+
+    # Create tabs dynamically
+    tabs = [
+        dcc.Tab(label=label, children=[
+            dcc.Graph(figure=figure),],
+            style=tab_style, selected_style= tab_style)
+            for label, figure in figures_info
+    ]
 
     app.layout = html.Div([
-        dcc.Tabs([
-            dcc.Tab(label='Wall Displacement', children=[
-                dcc.Graph(figure=fig_wall_displacement)
-            ]),
-            dcc.Tab(label='Plot Surface', children=[
-                dcc.Graph(figure=fig_plot_surface)
-            ]),
-            dcc.Tab(label='Subsidence', children=[
-                dcc.Graph(figure=fig_subsidence)
-            ])
-        ])
+        dcc.Tabs(tabs)
     ])
+
     if __name__ == '__main__':
         app.run_server(debug=False)
+
     return app
-
-
-
-def compute_param(strain_value):
-    colors = ['#BBE3AB', '#FAFAB1', '#DF7E7D']  # Colors corresponding to thresholds
-    thresholds = [0.5e-3, 1.67e-3, 3.33e-3]  # Thresholds
-    cat = ['Negligible', 'Moderate', 'Severe']  # Categories
-
-    ind = np.argmax([t - strain_value for t in thresholds if t <= strain_value])
-
-    cmap = LinearSegmentedColormap.from_list("", [(0, colors[0]), (0.5, colors[1]), (1, colors[2])])
-    normalized_strain = (strain_value - min(thresholds)) / (max(thresholds) - min(thresholds))
-    
-    rgba_color = cmap(normalized_strain)
-    r, g, b, _ = rgba_color  # Extract RGB values from RGBA tuple
-    r_int = int(r * 255)  # Convert float to integer in range [0, 255]
-    g_int = int(g * 255)
-    b_int = int(b * 255)
-    hex_color = "#{:02X}{:02X}{:02X}".format(r_int, g_int, b_int)
-    return hex_color, cat[ind]
 
 def EM_plot(report):
     """
@@ -338,35 +326,11 @@ def EM_plot(report):
 
     """    
     app = Dash(__name__)
-    all_sources = set()
-    all_sources = {src['source'] for wall in report for param in report[wall] for src in report[wall][param]}
-    sources = sorted(all_sources)
     walls = list(report.keys())
-    parameters = list(next(iter(report.values())).keys())
-
+    
     figs = []  
     for wall in walls:
-        data_matrix = []
-        wall_param_labels = []
-        description_annotations = []  
-        for parameter in parameters:
-            row = []
-            d_row = []
-            current_data = {item['source']: (item['DL'], item['assessment']) for item in report[wall][parameter]}
-            for source in sources:
-                value, description = current_data.get(source, (np.nan, ""))  # Use np.nan for missing values
-                row.append(value)
-                d_row.append(description)
-            data_matrix.append(row)
-            description_annotations.append(d_row)
-            wall_param_labels.append(f"{parameter}")  
-
-        data_matrix = np.array(data_matrix, dtype=np.float32)  
-        annotations = []
-        for desc_row, yd in zip(description_annotations, wall_param_labels):
-            for desc, xd in zip(desc_row, sources):
-                annotations.append(dict(showarrow=False, text=f"<b>{desc}</b>", x=xd, y=yd, font=dict(color="black")))
-
+        data_matrix, wall_param_labels, sources, description_annotations = prepare_report(report, wall)
         heatmap = go.Heatmap(z=data_matrix,
                                 x=sources,
                                 y=wall_param_labels,
@@ -414,7 +378,7 @@ def LTSM_plot(object):
         figs = []
         wltsm = object.assessment['ltsm'][assessment]
         for i, wall in enumerate(house):
-            # Unpack values
+            # ---------------------------------- Process --------------------------------- #
             h = object.house[wall]['height']
             int = object.process['int'][wall]
 
@@ -427,7 +391,7 @@ def LTSM_plot(object):
                 for key, value in dict_.items():
                     globals()[key] = value
 
-            ecolor, cat = compute_param(strain)
+            # ---------------------------------- Display --------------------------------- #
             fig = make_subplots(rows=2, cols=1,
                                 vertical_spacing=0.1,
                                 shared_xaxes=True,
@@ -470,21 +434,60 @@ def LTSM_plot(object):
                                      line=dict(color='black', dash='dash', width=1)),
                           row=2, col=1)
 
+            # -------------------------- Evaluation and building ------------------------- #
             if i % 2 == 0:  # Wall is along the y axis
                 xi = object.house[wall]['y'].max()
                 xj = object.house[wall]['y'].min()
             else:
                 xi = object.house[wall]['x'].max()
                 xj = object.house[wall]['x'].min()
-
+            
             # Plot wall shape
-            fig.add_shape(
+            try:
+                if object.assessment['ltsm'][assessment]['report']:
+                    report = object.assessment['ltsm'][assessment]['report']
+                    data_matrix, wall_param_labels, sources, description_annotations = prepare_report(report, wall)
+                    
+                    comments = description_annotations[0]
+                    assessments = data_matrix.flatten()
+                    
+                    colorscale = 'RdYlGn_r'
+                    colors = get_colorscale(colorscale)
+                    dlmax = data_matrix.flatten().max()
+                    color_matrix = [get_color_from_scale(damage, colors, dlmax) for damage in assessments]
+                    segment_width = (xi - xj) / len(assessments)
+
+                    for i, (color, assess_i, comment) in enumerate(zip(color_matrix, assessments, comments)):
+                        fig.add_shape(
+                            type="rect",
+                            x0= i * segment_width,
+                            y0= 0 ,
+                            x1= (i + 1) * segment_width,
+                            y1=h,
+                            fillcolor= color[1],
+                            line=dict(width=0),  # Remove borders if not needed
+                            row=1, col=1
+                        )
+                        fig.add_trace(go.Scatter(
+                            x=[(i + 0.5) * segment_width],
+                            y=[h / 2],
+                            text=f"Assessment: {assess_i}<br>Comment: {comment}",
+                            mode='markers',
+                            marker=dict(size=0.1, color='rgba(0,0,0,0)'),
+                            hoverinfo='text'
+                        ))
+                    
+                    ind = np.argmax(assessments)
+                    cat = comments[ind]
+            except Exception as e: # Use Boscardin & Cording (1989) as default         
+                ecolor, cat = compute_param(strain)
+                fig.add_shape(
                 type="rect",
-                x0=0, y0=0,
+                x0= 0, y0=0,
                 x1=xi - xj, y1=h,
                 fillcolor=ecolor,
-                row=1, col=1
-            )
+                row=1, col=1 )
+            
             fig.update_layout(title=f'LTSM {wall} | e_tot = {strain:.2e} DL = {cat}',
                               legend=dict(traceorder="normal"),
                               template='plotly_white')

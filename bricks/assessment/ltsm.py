@@ -5,7 +5,7 @@ from scipy.interpolate import interp1d
 
 from .utils import gaussian_shape, hwall_length
 from .emethods import evaluate_wall
-from .elimits_db.elimits_epsilon import ParameterLimits, empirical_limits
+from .elimits_db.elimits_epsilon import ParameterLimits, epsilon_empirical_limits
 
 def LTSM(object, limit_line, eg_rat: int = 11, method: str = 'greenfield'):
     """
@@ -80,7 +80,7 @@ def LTSM(object, limit_line, eg_rat: int = 11, method: str = 'greenfield'):
             e_tot = np.max([e_bt, e_dt])
 
             strain_val = {'epsilon': e_tot}
-            dict_['report'][wall_] = evaluate_wall(strain_val, empirical_limits = empirical_limits())
+            dict_['report'][wall_] = evaluate_wall(strain_val, empirical_limits = epsilon_empirical_limits())
 
             dict_['results'][wall_] = {'e_tot': e_tot,
                                     'e_bt': e_bt,
@@ -113,7 +113,6 @@ def LTSM(object, limit_line, eg_rat: int = 11, method: str = 'greenfield'):
             w_inflection = W[ind] 
 
     object.assessment['ltsm']['greenfield'] = dict_
-    return dict_
 
         
          

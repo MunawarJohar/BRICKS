@@ -12,7 +12,7 @@ class LimitEntry:
 class ParameterLimits:
     epsilon: List[LimitEntry] = field(default_factory=list)
 
-def empirical_limits() -> ParameterLimits:
+def epsilon_empirical_limits() -> ParameterLimits:
     return ParameterLimits(
         epsilon=[
             LimitEntry(
@@ -25,25 +25,25 @@ def empirical_limits() -> ParameterLimits:
                 source='Burland et al. (1977)',
                 limits=[0, 0.5e-3, float('inf')],
                 description=['No visible cracks', 'Visible cracks'],
-                DL=[0, 2]
+                DL=[0, 3]
             ),
             LimitEntry(
                 source='Base et al. (1966) deduced by Burland and Wroth (1974)',
                 limits=[0, 0.5e-3, float('inf')],
                 description=['No visible cracks', 'Onset of visible cracking'],
-                DL=[0, 2]
+                DL=[0, 3]
             ),
             LimitEntry(
                 source='Burhouse (1969) deduced by Burland and Wroth (1974)',
                 limits=[0.38e-3, 0.6e-3, float('inf')],
                 description=['No visible cracks', 'Onset of visible cracking'],
-                DL=[0, 2]
+                DL=[0, 3]
             ),
             LimitEntry(
                 source='Mainstone (1971) Information taken from Son (2003)',
                 limits=[0.2e-3, 0.3e-3, float('inf')],
                 description=['No visible cracking', 'Visible cracking'],
-                DL=[0, 2]
+                DL=[0, 3]
             ),
             LimitEntry(
                 source='Son and Cording (2005)',
