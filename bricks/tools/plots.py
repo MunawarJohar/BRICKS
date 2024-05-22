@@ -457,7 +457,7 @@ def LTSM_plot(object):
                     color_matrix = [get_color_from_scale(damage, colors, dlmax) for damage in assessments]
                     segment_width = (xi - xj) / len(assessments)
 
-                    for i, (color, assess_i, comment) in enumerate(zip(color_matrix, assessments, comments)):
+                    for i, (color, assess_i, comment,source) in enumerate(zip(color_matrix, assessments, comments,sources)):
                         fig.add_shape(
                             type="rect",
                             x0= i * segment_width,
@@ -471,7 +471,7 @@ def LTSM_plot(object):
                         fig.add_trace(go.Scatter(
                             x=[(i + 0.5) * segment_width],
                             y=[h / 2],
-                            text=f"Assessment: {assess_i}<br>Comment: {comment}",
+                            text=f"Assessment: {source}<br>DL: {assess_i}<br>Comment: {comment}",
                             mode='markers',
                             marker=dict(size=0.1, color='rgba(0,0,0,0)'),
                             hoverinfo='text'
