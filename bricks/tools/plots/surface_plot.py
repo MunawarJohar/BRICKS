@@ -1,15 +1,11 @@
-
 import numpy as np
 import plotly.graph_objects as go
-import plotly.figure_factory as ff
-from plotly.colors import get_colorscale
+from plotly.subplots import make_subplots
 
 from dash import Dash, dcc, html
 from plotly.subplots import make_subplots
 
-
-from .utils import prepare_report, compute_param, get_color_from_scale
-from ..assessment.utils import gaussian_shape
+from ...assessment.utils import gaussian_shape
 
 def plot_surface(x_mesh, y_mesh, z_lin, z_qint):
 
@@ -107,7 +103,7 @@ def building_traces(OBJECT):
                            'y': y_bound,
                            'h': h}}
 
-def subsidence(OBJECT, building = False, soil = False, deformation = False) -> go.Figure():
+def subsidence(OBJECT, building = False, soil = False, deformation = False):
     """
     Plot subsidence data.
 
@@ -284,13 +280,13 @@ def subsidence(OBJECT, building = False, soil = False, deformation = False) -> g
             if (trace.name in names) else names.add(trace.name))
     return fig
 
-def subsurface(ijsselsteinseweg, *params):
+def subsurface(OBJECT, *params):
     app = Dash(__name__)
 
     figures_info = [
-        ('Wall Displacement', wall_displacement(ijsselsteinseweg)),
+        ('Wall Displacement', wall_displacement(OBJECT)),
         ('Plot Surface', plot_surface(*params)),
-        ('Subsidence', subsidence(ijsselsteinseweg, building=False, soil=True, deformation=True))
+        ('Subsidence', subsidence(OBJECT, building=False, soil=True, deformation=True))
     ]
     tab_style = {
         'fontFamily': 'Arial, sans-serif',
@@ -314,201 +310,3 @@ def subsurface(ijsselsteinseweg, *params):
 
     return app
 
-def EM_plot(report):
-    """
-    Generate an annotated heatmap plot for empirical assessment.
-
-    Args:
-        report (dict): A dictionary containing the empirical assessment report.
-
-    Returns:
-        app (Dash): The Dash application object.
-
-    """    
-    app = Dash(__name__)
-    walls = list(report.keys())
-    
-    figs = []  
-    for wall in walls:
-        data_matrix, wall_param_labels, sources, description_annotations = prepare_report(report, wall)
-        heatmap = go.Heatmap(z=data_matrix,
-                                x=sources,
-                                y=wall_param_labels,
-                                    colorscale='RdYlGn_r',  
-                                zmin=0,
-                                zmax=5,
-                                colorbar=dict(title='Damage<br> Level'),
-                                hoverongaps=False,
-                                hoverinfo='text',
-                                text=np.vectorize(lambda desc: f"{desc}")(description_annotations),
-                                customdata=np.array(description_annotations))
-
-        layout = go.Layout(
-            title=f'{wall.capitalize()} empirical assessment',
-            xaxis=dict(title='Literature Source', side='bottom', showgrid=True),
-            yaxis=dict(title='SRI Parameter', showgrid=True, autorange='reversed'),
-            template='plotly_white'
-        )
-
-        fig = go.Figure(data=heatmap, layout=layout)
-        figs.append(fig)
-
-    tab_heading_style = {
-        'fontFamily': 'Arial, sans-serif',
-        'color': '#3a4d6b'
-    }
-    tabs_content = [dcc.Tab(label=f"{wall.capitalize()}", children=[dcc.Graph(figure=fig)], style=tab_heading_style, selected_style=tab_heading_style) for wall, fig in zip(walls, figs)]
-    app.layout = html.Div([
-        dcc.Tabs(children=tabs_content)
-    ])
-    if __name__ == '__main__':
-        app.run_server(debug=False)
-    return app
-
-def LTSM_plot(object):
-    house = object.house
-    app = Dash(__name__)
-    
-    assess_types = list(object.assessment['ltsm'].keys())
-    all_assessment_tabs = []
-
-    tab_style = {'fontFamily': 'Arial, sans-serif', 'color': '#3a4d6b'}
-    
-    for assessment in assess_types:
-        figs = []
-        wltsm = object.assessment['ltsm'][assessment]
-        for i, wall in enumerate(house):
-            # ---------------------------------- Process --------------------------------- #
-            h = object.house[wall]['height']
-            int = object.process['int'][wall]
-
-            strain = wltsm['results'][wall]['e_tot']
-            ltsm_params = wltsm['variables'][wall]
-            ltsm_values = wltsm['values'][wall]
-
-            param = [ltsm_params, ltsm_values]
-            for dict_ in param:
-                for key, value in dict_.items():
-                    globals()[key] = value
-
-            # ---------------------------------- Display --------------------------------- #
-            fig = make_subplots(rows=2, cols=1,
-                                vertical_spacing=0.1,
-                                shared_xaxes=True,
-                                shared_yaxes=True,
-                                x_title='Length [m]',
-                                y_title='Height [m,mm]',
-                                subplot_titles=('Relative Wall position', 'Subsidence profile'))
-
-            # Subsidence profile trace
-            if assessment == 'measurements':
-                fig.add_trace(go.Scatter(x=int['ax_rel'][::-1],
-                                         y=int["z_lin"],
-                                         mode='lines',
-                                         name='Subsidence profile'),
-                              row=2, col=1)
-            if assessment == 'greenfield':
-                fig.add_trace(go.Scatter(x=x,
-                                         y=w,
-                                         mode='lines',
-                                         name='Gaussian profile approximation'),
-                              row=2, col=1)
-
-            # Inflection traces
-            for z in [-xinflection, xinflection]:
-                fig.add_trace(go.Scatter(x=[z, z], y=[0, h], mode='lines', name='Inflection point',
-                                         line=dict(color='black', width=1, dash='dash')), row=1, col=1)
-
-                fig.add_trace(go.Scatter(x=[z, z], y=[w.min(), w.max()], mode='lines', name='Inflection point',
-                                         line=dict(color='black', width=1, dash='dash')), row=2, col=1)
-
-            for influence in [-xlimit, xlimit]:
-                fig.add_trace(go.Scatter(x=[influence, influence], y=[0, h], mode='lines', name='Influence area',
-                                         line=dict(color='black', width=1, dash='dashdot')), row=1, col=1)
-
-                fig.add_trace(go.Scatter(x=[influence, influence], y=[w.min(), w.max()], mode='lines', name='Influence area',
-                                         line=dict(color='black', width=1, dash='dashdot')), row=2, col=1)
-            fig.add_trace(go.Scatter(x=x,
-                                     y=np.full(len(x), limitline),
-                                     mode='lines', name=f'Limit Line [{limitline} mm]',
-                                     line=dict(color='black', dash='dash', width=1)),
-                          row=2, col=1)
-
-            # -------------------------- Evaluation and building ------------------------- #
-            if i % 2 == 0:  # Wall is along the y axis
-                xi = object.house[wall]['y'].max()
-                xj = object.house[wall]['y'].min()
-            else:
-                xi = object.house[wall]['x'].max()
-                xj = object.house[wall]['x'].min()
-            
-            # Plot wall shape
-            try:
-                if object.assessment['ltsm'][assessment]['report']:
-                    report = object.assessment['ltsm'][assessment]['report']
-                    data_matrix, wall_param_labels, sources, description_annotations = prepare_report(report, wall)
-                    
-                    comments = description_annotations[0]
-                    assessments = data_matrix.flatten()
-                    
-                    colorscale = 'RdYlGn_r'
-                    colors = get_colorscale(colorscale)
-                    dlmax = data_matrix.flatten().max()
-                    color_matrix = [get_color_from_scale(damage, colors, dlmax) for damage in assessments]
-                    segment_width = (xi - xj) / len(assessments)
-
-                    for i, (color, assess_i, comment,source) in enumerate(zip(color_matrix, assessments, comments,sources)):
-                        fig.add_shape(
-                            type="rect",
-                            x0= i * segment_width,
-                            y0= 0 ,
-                            x1= (i + 1) * segment_width,
-                            y1=h,
-                            fillcolor= color[1],
-                            line=dict(width=0),  # Remove borders if not needed
-                            row=1, col=1
-                        )
-                        fig.add_trace(go.Scatter(
-                            x=[(i + 0.5) * segment_width],
-                            y=[h / 2],
-                            text=f"Assessment: {source}<br>DL: {assess_i}<br>Comment: {comment}",
-                            mode='markers',
-                            marker=dict(size=0.1, color='rgba(0,0,0,0)'),
-                            hoverinfo='text'
-                        ))
-                    
-                    ind = np.argmax(assessments)
-                    cat = comments[ind]
-            except Exception as e: # Use Boscardin & Cording (1989) as default         
-                ecolor, cat = compute_param(strain)
-                fig.add_shape(
-                type="rect",
-                x0= 0, y0=0,
-                x1=xi - xj, y1=h,
-                fillcolor=ecolor,
-                row=1, col=1 )
-            
-            fig.update_layout(title=f'LTSM {wall} | e_tot = {strain:.2e} DL = {cat}',
-                              legend=dict(traceorder="normal"),
-                              template='plotly_white')
-
-            # Remove duplicate legend labels
-            names = set()
-            fig.for_each_trace(
-                lambda trace:
-                trace.update(showlegend=False)
-                if (trace.name in names) else names.add(trace.name))
-            figs.append(fig)
-
-        wall_tabs = [dcc.Tab(label=f"Wall {i+1}", children=[dcc.Graph(figure=fig)], style= tab_style, selected_style= tab_style ) for i, fig in enumerate(figs)]
-        assessment_tab = dcc.Tab(label=f"{assessment.capitalize()} assessment", children=[dcc.Tabs(children=wall_tabs)], style=tab_style, selected_style= tab_style)
-        all_assessment_tabs.append(assessment_tab)
-
-    app.layout = html.Div([
-        dcc.Tabs(children=all_assessment_tabs)
-    ])
-
-    return app
-
-
-        

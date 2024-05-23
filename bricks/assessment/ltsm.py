@@ -7,113 +7,252 @@ from .utils import gaussian_shape, hwall_length
 from .emethods import evaluate_wall
 from .elimits_db.elimits_epsilon import ParameterLimits, epsilon_empirical_limits
 
-def LTSM(object, limit_line, eg_rat: int = 11, method: str = 'greenfield'):
+def greenfield_measures(params):
     """
-    Compute LTSM parameters and strain measures for a given wall.
+    Calculate various measures related to greenfield analysis.
 
     Parameters:
-    - walls (dict): Dictionary witht the values for the building geometry and skew measurements
-    - wall (int): The wall index.
-    - limit_line (float): The limit line value.
-    - height (float): The height of the wall.
-    - eg_rat (float): The ratio of the wall's effective gauge length to its height.
-    - i (int): The iteration index.
-    - df (DataFrame): The input data.
+    - params (dict): A dictionary containing the following keys:
+        - x_gauss (array-like): X-values for the Gaussian shape.
+        - s_vmax (float): Standard deviation for the Gaussian shape.
+        - x_inflection (float): X-value for the inflection point.
 
     Returns:
-    - X (array): The X values.
-    - W (array): The W values.
-    - x_inflection (float): The x_inflection value.
-    - xnormal (float): The xnormal value.
-    - x_limit (float): The x_limit value.
-    - xi (float): The xi value.
-    - xj (float): The xj value.
-    - df (DataFrame): The input data.
+    - gflmeas_ (dict): Dictionary containing hogging and sagging lengths.
+    - gfsmeas_ (dict): Dictionary containing normalized measures for hogging and sagging.
+    - gfvar_ (dict): Dictionary containing inflection and limit values.
     """
-    dict_ = {'report': {}, 'results': {}, 'values': {}, 'variables': {}}
+    W = gaussian_shape(params['x_gauss'], params['s_vmax'], params['x_inflection'])
+    X = params['x_gauss']
+    x_inflection = np.abs(params['x_inflection'])
+    w_inflection = interp1d(X, W, kind='nearest')(x_inflection)
+
+    # Assuming length and limit_line are part of params
+    length = params['length']
+    limit_line = params['limit_line']
+    height = params['height']
+
+    w_current = interp1d(X, W, kind='nearest')(length)
+    x_limit = np.abs(interp1d(W, X, kind='nearest')(limit_line))
+    l_hogging = max((length - x_inflection) * 1e3, 0)
+    lh_hogging = l_hogging / height
+    dw_hogging = np.abs(w_current - w_inflection)
+    dl_hogging = 0 if l_hogging == 0 else dw_hogging / l_hogging
+
+    l_sagging = length * 1e3 - l_hogging
+    lh_sagging = l_sagging / (height / 2)
+    dw_sagging = np.abs(W.min() + w_inflection)
+    dl_sagging = dw_sagging / l_sagging
+
+    gflmeas_ = {'l_h': l_hogging,
+                'l_s': l_sagging}
+    
+    gfsmeas_ = {'lh_s': lh_sagging,
+                'lh_h': lh_hogging,
+                'dl_s': dl_sagging,
+                'dl_h': dl_hogging,}
+    
+    gfvar_ = {'xinflection': x_inflection,
+               'xlimit': x_limit}
+
+    return gflmeas_, gfsmeas_, gfvar_
+
+def measurement_measures(params, height):
+    """
+    Calculate various measures related to greenfield analysis.
+
+    Parameters:
+    - params (dict): A dictionary containing the following keys:
+        - x_gauss (array-like): X-values for the Gaussian shape.
+        - s_vmax (float): Standard deviation for the Gaussian shape.
+        - x_inflection (float): X-value for the inflection point.
+
+    Returns:
+    - gflmeas_ (dict): Dictionary containing hogging and sagging lengths.
+    - gfsmeas_ (dict): Dictionary containing normalized measures for hogging and sagging.
+    - gfvar_ (dict): Dictionary containing inflection and limit values.
+    """
+    gfl_sag_ = []
+    gfl_hog_ = []
+    
+    for i,region in enumerate(params['regions']):
+        length = params['region_lengths'][i] * 1e3
+        d_defl = params['d_deflection_zone'][i]
+        
+        if region == -1:
+            l_sagging = length
+            lh_sagging = l_sagging / (height / 2)
+            dl_sagging = d_defl / l_sagging
+
+            gfl_sag_.append({'l_s': l_sagging,
+                        'lh_s': lh_sagging,
+                        'dl_s': dl_sagging,})
+        
+        if region == 1:
+            l_hogging = length
+            lh_hogging = l_hogging / height
+            dl_hogging = d_defl / l_hogging
+
+            gfl_hog_.append({'l_h': l_hogging,
+                        'lh_h': lh_hogging,
+                        'dl_h': dl_hogging,})        
+        
+    return gfl_sag_, gfl_hog_
+
+def e_hog(dl_h,lh_h,eg_rat):    
+    e_bending_hogg = dl_h * (3 * lh_h / (1 / 4 * lh_h ** 2 + 1.2 * eg_rat))
+    e_shear_hogg = dl_h * (3 * eg_rat / ((0.5 * lh_h ** 2) + 2 * 1.2 * eg_rat))
+    return e_bending_hogg, e_shear_hogg
+
+def e_sag(dl_s,lh_s,eg_rat):
+    e_bending_sagg = dl_s * (6 * lh_s / (lh_s ** 2 + 2 * eg_rat))
+    e_shear_sagg = dl_s * (3 * lh_s / (2 * lh_s ** 2 + 2 * 1.2 * eg_rat))
+    return e_bending_sagg, e_shear_sagg
+
+def e_total(e_bending_sagg, e_bending_hogg, e_shear_sagg, e_shear_hogg, e_horizontal):
+    e_bending = np.max([e_bending_sagg, e_bending_hogg])
+    e_shear = np.max([e_shear_sagg, e_shear_hogg])
+
+    e_bt = e_bending + e_horizontal
+    e_dt = e_horizontal / (2 + np.sqrt((e_horizontal / 2) ** 2 + e_shear ** 2))
+    e_tot = np.max([e_bt, e_dt])
+    return e_tot, e_bt, e_dt
+
+def gf_strain_measures(lh_s, lh_h, dl_s, dl_h, height, length, wall, eg_rat=11):
+    """
+    Calculate strain measures for a given set of parameters.
+
+    Parameters:
+    - lh_sagging (float): Length of sagging divided by (height / 2).
+    - lh_hogging (float): Length of hogging divided by height.
+    - dl_sagging (float): Difference in width for sagging.
+    - dl_hogging (float): Difference in width for hogging.
+    - height (float): The height of the wall.
+    - length (float): The length of the wall.
+    - wall (dict): The wall dictionary containing the 'phi' values.
+    - eg_rat (int, optional): EG ratio value. Defaults to 11.
+
+    Returns:
+    - epmeas_ (dict): Dictionary containing various strain measures.
+    """
+    ratio = height / (2 * 1e3)
+    uxy = (wall['phi'][-1] - wall['phi'][0]) * 1000 * ratio
+    e_horizontal = uxy / (length * 1e3)
+
+    e_bending_hogg, e_shear_hogg = e_hog(dl_s,lh_s,eg_rat)
+    e_bending_sagg, e_shear_sagg = e_sag(dl_s,lh_s,eg_rat)
+    
+    e_tot, e_bt, e_dt = e_total(e_bending_sagg, e_bending_hogg, 
+                                       e_shear_sagg, e_shear_hogg,
+                                         e_horizontal)
+
+    epmeas_ = {'e_tot': e_tot, 'e_bt': e_bt, 'e_dt': e_dt, 'e_bh': e_bending_hogg,
+               'e_bs': e_bending_sagg, 'e_sh': e_shear_hogg, 'e_ss': e_shear_sagg,
+               'e_h': e_horizontal}
+
+    return epmeas_
+
+def meas_strain_measures(gfl_sag_, gfl_hog_, height, length, wall, eg_rat=11):
+    ratio = height / (2 * 1e3)
+    uxy = (wall['phi'][-1] - wall['phi'][0]) * 1000 * ratio
+    e_horizontal = uxy / (length * 1e3)
+
+    e_bending_sagg = 0 
+    e_shear_sagg = 0
+
+    if gfl_sag_:
+        for item in gfl_sag_:
+            e_bending_s, e_shear_s = e_sag(item['dl_s'], item['lh_s'], eg_rat)
+            e_bending_sagg = np.max([abs(e_bending_sagg), abs(e_bending_s)])
+            e_shear_sagg = np.max([abs(e_shear_sagg), abs(e_shear_s)])
+    else:
+        e_bending_sagg = 0
+        e_shear_sagg = 0
+
+    e_bending_hogg = 0
+    e_shear_hogg = 0
+
+    if gfl_hog_:
+        for item in gfl_hog_:
+            e_bending_h, e_shear_h = e_hog(item['dl_h'], item['lh_h'], eg_rat)
+            e_bending_hogg = np.max([abs(e_bending_hogg), abs(e_bending_h)])
+            e_shear_hogg = np.max([abs(e_shear_hogg), abs(e_shear_h)])
+    else:
+        e_bending_hogg = 0
+        e_shear_hogg = 0
+            
+    e_tot, e_bt, e_dt = e_total(e_bending_sagg, e_bending_hogg, 
+                                e_shear_sagg, e_shear_hogg,
+                                e_horizontal)
+
+    epmeas_ = {'e_tot': abs(e_tot), 'e_bt': abs(e_bt), 'e_dt': abs(e_dt), 'e_bh': abs(e_bending_hogg),
+               'e_bs': abs(e_bending_sagg), 'e_sh': abs(e_shear_hogg), 'e_ss': abs(e_shear_sagg),
+               'e_h': abs(e_horizontal)}
+    
+    return epmeas_
+
+def LTSM(object, limit_line, eg_rat=11, methods=['greenfield']):
+    """
+    Perform LTSM (Long-Term Strain Monitoring) assessment on a given object.
+
+    Parameters:
+    - object: The object to perform the assessment on.
+    - limit_line: The limit line for the assessment.
+    - eg_rat: The ratio of elastic modulus to shear modulus. Default is 11.
+    - methods: The assessment methods to use. Default is ['greenfield'].
+
+    Returns:
+    - None
+
+    The function updates the 'assessment' attribute of the 'object' with the LTSM results.
+    """
+    gf_ = {'report': {}, 'results': {}, 'values': {}, 'variables': {}}
+    ms_ = {'report': {}, 'results': {}, 'values': {}, 'variables': {}} # Leave for unpacking
+    
     object.assessment['ltsm'] = {}
 
     for wall_ in object.house:
         i = list(object.house.keys()).index(wall_) + 1
-        wall = object.house[wall_] 
-        length = hwall_length(wall,i)
+        wall = object.house[wall_]
+        length = hwall_length(wall, i)
         height = wall['height']
-        
-        # ----------------------------- Determine method ----------------------------- #
-        if method == 'greenfield':
 
+        if 'greenfield' in methods:
             params = object.process['params'][wall_]
-            W = gaussian_shape(params['x_gauss'], params['s_vmax'], params['x_inflection'])
-            X = params['x_gauss']
-            x_inflection = np.abs(params['x_inflection'])
-            w_inflection = interp1d(X, W, kind = 'nearest')(x_inflection)
+            params.update({'length': length, 'height': height, 'limit_line': limit_line})
 
-            w_current = interp1d(X, W, kind = 'nearest')(length)
-            x_limit = np.abs(interp1d(W, X, kind = 'nearest')(limit_line))
-            l_hogging = max((length - x_inflection) * 1e3, 0)
-            lh_hogging = l_hogging / height
-            dw_hogging = np.abs(w_current - w_inflection) ## location of building
-            dl_hogging = 0 if l_hogging == 0 else dw_hogging / l_hogging
+            gflmeas_, gfsmeas_, gfvar_ = greenfield_measures(params)
+            epmeas_ = gf_strain_measures(**gfsmeas_, height=height, length=length, wall=wall, eg_rat=eg_rat)
 
-            l_sagging = length * 1e3 - l_hogging
-            lh_sagging = l_sagging / (height / 2)
-            dw_sagging = np.abs(W.min() + w_inflection)
-            dl_sagging = dw_sagging / l_sagging
-
-            # -------------------------- Compute strain measures ------------------------- #
-            ratio = height/ 2*1e3
-            uxy = (wall['phi'][-1] - wall['phi'][0])* 1000 * ratio
-            e_horizontal = uxy / length*1e3
-            
-            e_bending_hogg = dl_hogging * (3 * lh_hogging / (1 / 4 * lh_hogging ** 2 + 1.2 * eg_rat))
-            e_shear_hogg = dl_hogging * (3 * eg_rat / ((0.5*lh_hogging**2) + 2 * 1.2 * eg_rat))
-
-            e_bending_sagg = dl_sagging * (6 * lh_sagging / (lh_sagging ** 2 + 2 * eg_rat))
-            e_shear_sagg = dl_sagging * (3 * lh_sagging / (2 * lh_sagging ** 2 + 2 * 1.2 * eg_rat))
-
-            e_bending = np.max([e_bending_sagg, e_bending_hogg])
-            e_shear = np.max([e_shear_sagg, e_shear_hogg])
-            e_horizontal = 0  ## How do you calculate delta L??
-
-            e_bt = e_bending + e_horizontal
-            e_dt = e_horizontal / (2 + np.sqrt((e_horizontal / 2) ** 2 + e_shear ** 2))
-            e_tot = np.max([e_bt, e_dt])
-
-            strain_val = {'epsilon': e_tot}
-            dict_['report'][wall_] = evaluate_wall(strain_val, empirical_limits = epsilon_empirical_limits())
-
-            dict_['results'][wall_] = {'e_tot': e_tot,
-                                    'e_bt': e_bt,
-                                    'e_dt': e_dt,
-                                    'e_bh': e_bending_hogg,
-                                    'e_bs': e_bending_sagg,
-                                    'e_sh': e_shear_hogg,
-                                    'e_ss': e_shear_sagg,
-                                    'e_h': e_horizontal,
-                                    'l_h': l_hogging,
-                                    'l_s': l_sagging,
-                                    'dw_h': dw_hogging,
-                                    'dw_s': dw_sagging,}
-            
-            dict_['variables'][wall_] = {'xinflection': x_inflection,
-                                        'xlimit': x_limit,
-                                        'limitline': limit_line,
-                                        's_vmax': params['s_vmax']}
-            
-            dict_['values'][wall_] = {'x': X,
-                                'w': W,}
+            strain_val = {'epsilon': epmeas_['e_tot']}
+            gf_['report'][wall_] = evaluate_wall(strain_val, empirical_limits=epsilon_empirical_limits())
     
-        if method == 'measurements':
-            W = object.process['int'][wall_]['ax']
-            X = object.process['int'][wall_]['z_q']
-            dW_dx = np.gradient(W, X)
-            d2W_dx2 = np.gradient(dW_dx, X)
-            ind = np.where(np.diff(np.sign(d2W_dx2)))[0]
-            x_inflection = X[ind]
-            w_inflection = W[ind] 
+            gf_['results'][wall_] = {**epmeas_,
+                                     **gflmeas_,
+                                     **gfsmeas_}
 
-    object.assessment['ltsm']['greenfield'] = dict_
+            gf_['variables'][wall_] = {**gfvar_,
+                                       'limitline': limit_line,
+                                       's_vmax': params['s_vmax']}
 
+            gf_['values'][wall_] = {'x': params['x_gauss'],
+                                    'w': gaussian_shape(params['x_gauss'], params['s_vmax'], params['x_inflection'])}
+
+        if 'measurements' in methods:
+
+            params = object.soil['shape'][wall_]
+            gfl_sag_, gfl_hog_ = measurement_measures(params, height)
+            epmeas_ = meas_strain_measures(gfl_sag_, gfl_hog_, height, length, wall, eg_rat=11)
+
+            strain_val = {'epsilon': epmeas_['e_tot']}
+            ms_['report'][wall_] = evaluate_wall(strain_val, empirical_limits=epsilon_empirical_limits())
+            
+            ms_['results'][wall_] = {**epmeas_,
+                                     'gfl_sag_': gfl_sag_,
+                                     'gfl_hog_': gfl_hog_,}
+
+    object.assessment['ltsm']['greenfield'] = gf_
+    object.assessment['ltsm']['measurements'] = ms_
         
          
     

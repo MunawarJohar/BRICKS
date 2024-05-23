@@ -6,9 +6,9 @@ def get_color_from_scale(level, scale, dlmax):
     return scale[int(scaled_level * (len(scale) - 1))]
 
 def compute_param(strain_value):
-    colors = ['#BBE3AB', '#FAFAB1', '#DF7E7D']  # Colors corresponding to thresholds
-    thresholds = [0.5e-3, 1.67e-3, 3.33e-3]  # Thresholds
-    cat = ['Negligible', 'Moderate', 'Severe']  # Categories
+    colors = ['#BBE3AB', '#FAFAB1', '#DF7E7D', '#DF7E7D']  # Colors corresponding to thresholds
+    thresholds = [0, 0.5e-3, 1.67e-3, 3.33e-3]  # Thresholds
+    cat = ['Negligible', 'Moderate', 'Severe', 'Very Severe']  # Categories
 
     ind = np.argmax([t - strain_value for t in thresholds if t <= strain_value])
 
