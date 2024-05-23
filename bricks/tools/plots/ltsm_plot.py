@@ -40,16 +40,28 @@ def LTSM_plot(object):
                                     shared_xaxes=True,
                                     shared_yaxes=True,
                                     x_title='Length [m]',
-                                    y_title='Height [m,mm]',
+                                    y_title='Profile & Height [mm]',
                                     subplot_titles=('Relative Wall position', 'Subsidence profile'))
 
-                # Subsidence profile trace
+                # -------------------- Custom measurements functionalities ------------------- #
                 if assessment == 'measurements':
-                    fig.add_trace(go.Scatter(x=int['ax_rel'][::-1],
-                                            y=int["z_lin"],
+                    z_measurement = int["z_lin"]
+                    x_measurement = int["ax_rel"]
+                    fig.add_trace(go.Scatter(x=x_measurement,
+                                            y= z_measurement,
                                             mode='lines',
                                             name='Subsidence profile'),
                                 row=2, col=1)
+                    
+                    infl_list = object.soil['shape'][wall]['gradient_inflection_coord']
+                    for infl in infl_list:
+                        fig.add_trace(go.Scatter(x= [infl,infl], y=[0, h], mode='lines', name='Inflection point',
+                                                line=dict(color='black', width=1, dash='dash')), row=1, col=1)
+
+                        fig.add_trace(go.Scatter(x= [infl,infl], y=[min(z_measurement), max(z_measurement)], mode='lines', name='Inflection point',
+                                                line=dict(color='black', width=1, dash='dash')), row=2, col=1)
+
+                # --------------------- Custom greenfield functionalities -------------------- #
                 if assessment == 'greenfield':
                     fig.add_trace(go.Scatter(x=x,
                                             y=w,
@@ -107,6 +119,7 @@ def LTSM_plot(object):
                             x1= (i + 1) * segment_width,
                             y1=h,
                             fillcolor= color[1],
+                            opacity=0.7,
                             line=dict(width=0),  # Remove borders if not needed
                             row=1, col=1
                         )
@@ -115,6 +128,7 @@ def LTSM_plot(object):
                             y=[h / 2],
                             text=f"Assessment: {source}<br>DL: {assess_i}<br>Comment: {comment}",
                             mode='markers',
+                            showlegend=False,
                             marker=dict(size=0.1, color='rgba(0,0,0,0)'),
                             hoverinfo='text'
                         ))
@@ -128,8 +142,12 @@ def LTSM_plot(object):
                                     line=dict(color='black', width=2),  # Black border with width 2
                                     row=1, col=1)
 
-                else: # Use Boscardin & Cording (1989) as default         
-                    ecolor, cat = compute_param(strain)
+                else:          
+                    try: # Use Boscardin & Cording (1989) if no report exists
+                        ecolor, cat = compute_param(strain)
+                    except: # If assessment has been tampered place grey
+                        ecolor = 'rgba(49,50,51,0)'
+                        cat = 'No assessment'
                     fig.add_shape(
                     type="rect",
                     x0= 0, y0=0,
@@ -142,6 +160,14 @@ def LTSM_plot(object):
                 fig.update_layout(title=f'LTSM {wall} | e_tot = {strain:.2e} DL = {cat}',
                                 legend=dict(traceorder="normal"),
                                 template='plotly_white')
+                # Suppose 'condition' is your condition
+
+                if assessment == 'measurements':
+                    valr2 = x_measurement.max() * 1.5 
+                    x_range = [-valr2, valr2]
+                    
+                    fig.update_xaxes(range= x_range, row=1, col=1)
+                    fig.update_xaxes(range= x_range, row=2, col=1)
 
                 # Remove duplicate legend labels
                 names = set()

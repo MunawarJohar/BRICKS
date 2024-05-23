@@ -1,7 +1,7 @@
 import numpy as np
 from .utils import hwall_length
 
-def find_inflection_points_and_regions(wallz, coords):
+def find_inflection_points_and_regions(wallz, coords, tol = 0.05):
     """
     Finds the inflection points and regions of a wall based on the given wallz and coords.
 
@@ -31,6 +31,7 @@ def find_inflection_points_and_regions(wallz, coords):
     current_region_start_index = 0
     change_count = 0
 
+    demo = []
     for i in range(1, len(second_derivatives)):
         if second_derivatives[i] * second_derivatives[i - 1] < 0:
             change_count += 1
@@ -60,18 +61,26 @@ def find_inflection_points_and_regions(wallz, coords):
                 regions.append(current_region_type)
                 
                 change_count = 0  # Reset the change count after finding a region
-
+        
     # Handle the last region
     if current_region_start_index < n - 1:
         region_lengths.append(coords[-1] - coords[current_region_start_index])
         if len(regions) < 1:
             current_region_type = -1 if second_derivatives[i] > 0 else 1
             regions.append(current_region_type)
-        
+
+    grad_infl = []
+    for i in range(1,len(first_derivatives)-1):
+        dgrad = (first_derivatives[i] / first_derivatives[i - 1]) -1
+        if dgrad > tol:
+            point = coords[i]
+            grad_infl.append(point)
+
     return {
         'inflection_points': inflection_points,
         'regions': regions,
-        'region_lengths': region_lengths
+        'region_lengths': region_lengths,
+        'gradient_inflection_coord': grad_infl,
     }
 
 def evaluate_reldisp_wall_section(coords, wallz, n):
@@ -222,8 +231,8 @@ def compute_sri(house, wall_num, key):
 
     sri =  {'Smax': abs(min(wall['z'])),
             'dSmax': abs(s_vmax),
-            'Defrat': abs(s_vmax)/length,
-            'drat': abs(d_deflection),
+            'DefRat': abs(s_vmax)/length,
+            'dDef': abs(d_deflection),
             'omega': abs(omega),
             'phi': abs(phi),
             'beta': abs(beta)}
