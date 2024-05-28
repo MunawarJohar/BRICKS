@@ -1,7 +1,17 @@
 from dash import Dash, dcc, html
 import plotly.graph_objects as go
 import numpy as np
+import matplotlib.cm as cm
 from ..utils import prepare_report
+
+
+def apply_opacity_to_colorscale(colorscale_name, opacity):
+    cmap = cm.get_cmap(colorscale_name)
+    rgba_colors = []
+    for i in range(cmap.N):
+        r, g, b, _ = cmap(i)
+        rgba_colors.append([i / (cmap.N - 1), f'rgba({int(r * 255)}, {int(g * 255)}, {int(b * 255)}, {opacity})'])
+    return rgba_colors
 
 def EM_plot(report):
     """
@@ -17,12 +27,13 @@ def EM_plot(report):
     walls = list(report.keys())
     
     figs = []  
+    cscale = apply_opacity_to_colorscale('RdYlGn_r', 0.75)
     for wall in walls:
         data_matrix, wall_param_labels, sources, description_annotations = prepare_report(report, wall)
         heatmap = go.Heatmap(z=data_matrix,
                                 x=sources,
                                 y=wall_param_labels,
-                                    colorscale='RdYlGn_r',  
+                                colorscale= cscale,  
                                 zmin=0,
                                 zmax=5,
                                 colorbar=dict(title='Damage<br> Level'),

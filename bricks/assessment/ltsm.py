@@ -4,6 +4,7 @@ import numpy as np
 from scipy.interpolate import interp1d
 
 from .utils import gaussian_shape, hwall_length
+from .sri import calculate_reldisp_section
 from .emethods import evaluate_wall
 from .elimits_db.elimits_epsilon import ParameterLimits, epsilon_empirical_limits
 
@@ -32,17 +33,32 @@ def greenfield_measures(params):
     limit_line = params['limit_line']
     height = params['height']
 
-    w_current = interp1d(X, W, kind='nearest')(length)
     x_limit = np.abs(interp1d(W, X, kind='nearest')(limit_line))
     l_hogging = max((length - x_inflection) * 1e3, 0)
     lh_hogging = l_hogging / height
-    dw_hogging = np.abs(w_current - w_inflection)
+     
+    limit_idx = np.argmin(np.abs(W - limit_line))
+    inflection_idx = np.argmin(np.abs(W - w_inflection))
+
+    w_h = W[limit_idx: inflection_idx+1]
+    x_h = X[limit_idx: inflection_idx+1]
+    n = len(w_h)
+
+    dw_hogging = abs(calculate_reldisp_section(w_h, x_h, n)) 
     dl_hogging = 0 if l_hogging == 0 else dw_hogging / l_hogging
 
     l_sagging = length * 1e3 - l_hogging
     lh_sagging = l_sagging / (height / 2)
-    dw_sagging = np.abs(W.min() + w_inflection)
+    
+    limit_idx = np.argmin(np.abs(W - W.min()))
+    w_s = W[inflection_idx:limit_idx+1]
+    x_s = X[inflection_idx:limit_idx+1]
+    n = len(w_s) 
+    dw_sagging = abs(calculate_reldisp_section(w_s, x_s, n))     
     dl_sagging = dw_sagging / l_sagging
+
+    gfldisp_ = {'dw_h': dw_hogging, 
+                'dw_s': dw_sagging}
 
     gflmeas_ = {'l_h': l_hogging,
                 'l_s': l_sagging}
@@ -55,7 +71,7 @@ def greenfield_measures(params):
     gfvar_ = {'xinflection': x_inflection,
                'xlimit': x_limit}
 
-    return gflmeas_, gfsmeas_, gfvar_
+    return gflmeas_, gfsmeas_, gfvar_, gfldisp_
 
 def measurement_measures(params, height):
     """
@@ -86,7 +102,8 @@ def measurement_measures(params, height):
 
             gfl_sag_.append({'l_s': l_sagging,
                         'lh_s': lh_sagging,
-                        'dl_s': dl_sagging,})
+                        'dl_s': dl_sagging,
+                        'dw_s': d_defl,})
         
         if region == 1:
             l_hogging = length
@@ -95,7 +112,8 @@ def measurement_measures(params, height):
 
             gfl_hog_.append({'l_h': l_hogging,
                         'lh_h': lh_hogging,
-                        'dl_h': dl_hogging,})        
+                        'dl_h': dl_hogging,
+                        'dw_h': d_defl,})        
         
     return gfl_sag_, gfl_hog_
 
@@ -118,7 +136,7 @@ def e_total(e_bending_sagg, e_bending_hogg, e_shear_sagg, e_shear_hogg, e_horizo
     e_tot = np.max([e_bt, e_dt])
     return e_tot, e_bt, e_dt
 
-def gf_strain_measures(lh_s, lh_h, dl_s, dl_h, height, length, wall, eg_rat=11):
+def greenfield_strain_measures(lh_s, lh_h, dl_s, dl_h, height, length, wall, eg_rat=11):
     """
     Calculate strain measures for a given set of parameters.
 
@@ -137,9 +155,9 @@ def gf_strain_measures(lh_s, lh_h, dl_s, dl_h, height, length, wall, eg_rat=11):
     """
     ratio = height / (2 * 1e3)
     uxy = (wall['phi'][-1] - wall['phi'][0]) * 1000 * ratio
-    e_horizontal = uxy / (length * 1e3)
+    e_horizontal = abs(uxy / (length * 1e3))
 
-    e_bending_hogg, e_shear_hogg = e_hog(dl_s,lh_s,eg_rat)
+    e_bending_hogg, e_shear_hogg = e_hog(dl_h,lh_h,eg_rat)
     e_bending_sagg, e_shear_sagg = e_sag(dl_s,lh_s,eg_rat)
     
     e_tot, e_bt, e_dt = e_total(e_bending_sagg, e_bending_hogg, 
@@ -152,17 +170,19 @@ def gf_strain_measures(lh_s, lh_h, dl_s, dl_h, height, length, wall, eg_rat=11):
 
     return epmeas_
 
-def meas_strain_measures(gfl_sag_, gfl_hog_, height, length, wall, eg_rat=11):
+def measurement_strain_measures(gfl_sag_, gfl_hog_, height, length, wall, eg_rat=11):
     ratio = height / (2 * 1e3)
     uxy = (wall['phi'][-1] - wall['phi'][0]) * 1000 * ratio
     e_horizontal = uxy / (length * 1e3)
 
     e_bending_sagg = 0 
     e_shear_sagg = 0
-
+    iter_s = None
     if gfl_sag_:
-        for item in gfl_sag_:
+        for i,item in enumerate(gfl_sag_):
             e_bending_s, e_shear_s = e_sag(item['dl_s'], item['lh_s'], eg_rat)
+            if e_bending_s >= e_bending_sagg:
+                iter_s = i
             e_bending_sagg = np.max([abs(e_bending_sagg), abs(e_bending_s)])
             e_shear_sagg = np.max([abs(e_shear_sagg), abs(e_shear_s)])
     else:
@@ -171,16 +191,18 @@ def meas_strain_measures(gfl_sag_, gfl_hog_, height, length, wall, eg_rat=11):
 
     e_bending_hogg = 0
     e_shear_hogg = 0
-
+    iter_h = None
     if gfl_hog_:
-        for item in gfl_hog_:
+        for i,item in enumerate(gfl_hog_):
             e_bending_h, e_shear_h = e_hog(item['dl_h'], item['lh_h'], eg_rat)
+            if e_bending_h >= e_bending_hogg:
+                iter_h = i
             e_bending_hogg = np.max([abs(e_bending_hogg), abs(e_bending_h)])
             e_shear_hogg = np.max([abs(e_shear_hogg), abs(e_shear_h)])
     else:
         e_bending_hogg = 0
         e_shear_hogg = 0
-            
+
     e_tot, e_bt, e_dt = e_total(e_bending_sagg, e_bending_hogg, 
                                 e_shear_sagg, e_shear_hogg,
                                 e_horizontal)
@@ -189,7 +211,10 @@ def meas_strain_measures(gfl_sag_, gfl_hog_, height, length, wall, eg_rat=11):
                'e_bs': abs(e_bending_sagg), 'e_sh': abs(e_shear_hogg), 'e_ss': abs(e_shear_sagg),
                'e_h': abs(e_horizontal)}
     
-    return epmeas_
+    best_gfl_sag = gfl_sag_[iter_s] if iter_s is not None else None
+    best_gfl_hog = gfl_hog_[iter_h] if iter_h is not None else None
+    
+    return epmeas_, best_gfl_sag, best_gfl_hog
 
 def LTSM(object, limit_line, eg_rat=11, methods=['greenfield']):
     """
@@ -221,13 +246,14 @@ def LTSM(object, limit_line, eg_rat=11, methods=['greenfield']):
             params = object.process['params'][wall_]
             params.update({'length': length, 'height': height, 'limit_line': limit_line})
 
-            gflmeas_, gfsmeas_, gfvar_ = greenfield_measures(params)
-            epmeas_ = gf_strain_measures(**gfsmeas_, height=height, length=length, wall=wall, eg_rat=eg_rat)
+            gflmeas_, gfsmeas_, gfvar_, gfldisp_ = greenfield_measures(params)
+            epmeas_ = greenfield_strain_measures(**gfsmeas_, height=height, length=length, wall=wall, eg_rat=eg_rat)
 
             strain_val = {'epsilon': epmeas_['e_tot']}
             gf_['report'][wall_] = evaluate_wall(strain_val, empirical_limits=epsilon_empirical_limits())
     
             gf_['results'][wall_] = {**epmeas_,
+                                     **gfldisp_,
                                      **gflmeas_,
                                      **gfsmeas_}
 
@@ -242,15 +268,20 @@ def LTSM(object, limit_line, eg_rat=11, methods=['greenfield']):
 
             params = object.soil['shape'][wall_]
             gfl_sag_, gfl_hog_ = measurement_measures(params, height)
-            epmeas_ = meas_strain_measures(gfl_sag_, gfl_hog_, height, length, wall, eg_rat=11)
+            epmeas_, best_gfl_sag, best_gfl_hog = measurement_strain_measures(gfl_sag_, gfl_hog_, height, length, wall, eg_rat=11)
 
             strain_val = {'epsilon': epmeas_['e_tot']}
             ms_['report'][wall_] = evaluate_wall(strain_val, empirical_limits=epsilon_empirical_limits())
             
+            if best_gfl_sag is None:
+                best_gfl_sag = {'l_s': 0, 'lh_s': 0, 'dl_s': 0, 'dw_s': 0}
+            if best_gfl_hog is None:
+                best_gfl_hog = {'l_h': 0, 'lh_h': 0, 'dl_h': 0, 'dw_h': 0}
+            
             ms_['results'][wall_] = {**epmeas_,
-                                     'gfl_sag_': gfl_sag_,
-                                     'gfl_hog_': gfl_hog_,}
-
+                                     **best_gfl_sag,
+                                     **best_gfl_hog}
+            
     object.assessment['ltsm']['greenfield'] = gf_
     object.assessment['ltsm']['measurements'] = ms_
         

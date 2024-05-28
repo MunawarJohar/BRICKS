@@ -53,7 +53,7 @@ def LTSM_plot(object):
                                             name='Subsidence profile'),
                                 row=2, col=1)
                     
-                    infl_list = object.soil['shape'][wall]['gradient_inflection_coord']
+                    infl_list = object.soil['shape'][wall]['inflection_points']
                     for infl in infl_list:
                         fig.add_trace(go.Scatter(x= [infl,infl], y=[0, h], mode='lines', name='Inflection point',
                                                 line=dict(color='black', width=1, dash='dash')), row=1, col=1)
@@ -126,7 +126,7 @@ def LTSM_plot(object):
                         fig.add_trace(go.Scatter(
                             x=[(i + 0.5) * segment_width],
                             y=[h / 2],
-                            text=f"Assessment: {source}<br>DL: {assess_i}<br>Comment: {comment}",
+                            text=f"Source: {source} <br>DL: {assess_i} <br>Assessment: {comment}",
                             mode='markers',
                             showlegend=False,
                             marker=dict(size=0.1, color='rgba(0,0,0,0)'),

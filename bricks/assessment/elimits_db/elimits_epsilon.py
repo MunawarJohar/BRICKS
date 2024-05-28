@@ -17,9 +17,9 @@ def epsilon_empirical_limits() -> ParameterLimits:
         epsilon=[
             LimitEntry(
                 source='Boscardin & Cording (1989)',
-                limits=[0, 0.5e-3, 0.75e-3, 1.5e-3, 3e-3, float('inf')],
-                description=['No damage', 'Negligible damage', 'Very slight', 'Slight', 'Moderate to severe', 'Severe to very severe'],
-                DL=[0, 1, 2, 3, 4, 5]
+                limits=[0,0.5e-3, 0.75e-3, 1.5e-3, 3e-3, float('inf')],
+                description=['Negligible damage', 'Very slight', 'Slight', 'Moderate to severe', 'Severe to very severe'],
+                DL=[0, 1, 2, 3, 5]
             ),
             LimitEntry(
                 source='Burland et al. (1977)',
@@ -35,21 +35,21 @@ def epsilon_empirical_limits() -> ParameterLimits:
             ),
             LimitEntry(
                 source='Burhouse (1969) deduced by Burland and Wroth (1974)',
-                limits=[0.38e-3, 0.6e-3, float('inf')],
+                limits=[0,0.38e-3, float('inf')],
                 description=['No visible cracks', 'Onset of visible cracking'],
                 DL=[0, 3]
             ),
             LimitEntry(
                 source='Mainstone (1971) Information taken from Son (2003)',
-                limits=[0.2e-3, 0.3e-3, float('inf')],
+                limits=[0, 0.3e-3, float('inf')],
                 description=['No visible cracking', 'Visible cracking'],
                 DL=[0, 3]
             ),
             LimitEntry(
                 source='Son and Cording (2005)',
-                limits=[0, 0.5e-3, 0.75e-3, 1.67e-3, 3.33e-3, float('inf')],
-                description=['No damage', 'Negligible damage', 'Very slight', 'Slight', 'Moderate to severe', 'Severe to very severe'],
-                DL=[0, 1, 2, 3, 4, 5]
+                limits=[0,0.5e-3, 0.75e-3, 1.67e-3, 3.33e-3, float('inf')],
+                description=['Negligible damage', 'Very slight', 'Slight', 'Moderate to severe', 'Severe to very severe'],
+                DL=[0, 1, 2, 3, 5]
             )
         ]
     )

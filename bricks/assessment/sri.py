@@ -1,7 +1,7 @@
 import numpy as np
 from .utils import hwall_length
 
-def find_inflection_points_and_regions(wallz, coords, tol = 0.05):
+def find_inflection_points_and_regions(wallz, coords, tolerance):
     """
     Finds the inflection points and regions of a wall based on the given wallz and coords.
 
@@ -22,68 +22,92 @@ def find_inflection_points_and_regions(wallz, coords, tol = 0.05):
     """
     n = len(coords)
     inflection_points = []
-    region_lengths = []
     regions = []
+    region_lengths = []
+    region_axes = []
+
+    if n < 3:
+        # If less than 3 points, assume a single region
+        region_type = 0
+        regions.append(region_type)
+        region_lengths.append(coords[-1] - coords[0])
+        region_axes.extend([[coords[0],coords[-1]]])
+        
+        return {
+            'inflection_points': inflection_points,
+            'regions': regions,
+            'region_lengths': region_lengths,
+            'region_axes':region_axes
+        }
 
     first_derivatives = np.gradient(wallz, coords)
     second_derivatives = np.gradient(first_derivatives, coords)
 
-    current_region_start_index = 0
-    change_count = 0
-
-    demo = []
-    for i in range(1, len(second_derivatives)):
-        if second_derivatives[i] * second_derivatives[i - 1] < 0:
-            change_count += 1
-            if change_count == 1:
-                inflection_point = coords[i]
-                inflection_points.append(inflection_point)
-
-                current_region_type = -1 if second_derivatives[i] > 0 else 1
-                regions.append(current_region_type)
-                
-            
-            if change_count == 2:
-                
-                # Determine the end of the current region
-                if i - 1 != current_region_start_index:
-                    region_end_index = i - 1
-                else:
-                    region_end_index = i
-                
-                inflection_point = coords[i]
-                inflection_points.append(inflection_point)
-
-                region_lengths.append(coords[region_end_index] - coords[current_region_start_index])
-                current_region_start_index = region_end_index
-                
-                current_region_type = -1 if second_derivatives[i] > 0 else 1
-                regions.append(current_region_type)
-                
-                change_count = 0  # Reset the change count after finding a region
-        
-    # Handle the last region
-    if current_region_start_index < n - 1:
-        region_lengths.append(coords[-1] - coords[current_region_start_index])
-        if len(regions) < 1:
-            current_region_type = -1 if second_derivatives[i] > 0 else 1
-            regions.append(current_region_type)
-
-    grad_infl = []
-    for i in range(1,len(first_derivatives)-1):
-        dgrad = (first_derivatives[i] / first_derivatives[i - 1]) -1
-        if dgrad > tol:
+    # Find inflection points using the first derivatives
+    for i in range(1, len(first_derivatives) - 1):
+        dgrad = (first_derivatives[i] / first_derivatives[i - 1]) - 1
+        if abs(dgrad) > tolerance:
             point = coords[i]
-            grad_infl.append(point)
+            inflection_points.append(point)
 
+    # Calculate regions and region lengths using inflection points
+    if inflection_points:
+        start_idx = 0
+        for i in range(len(inflection_points) - 1):
+            ip = inflection_points[i]
+            curr_ip_idx = np.where(coords == ip)[0][0]
+            if i + 1 < len(inflection_points):
+                next_ip = inflection_points[i + 1]
+                end_idx = np.where(coords == next_ip)[0][0]
+            else:
+                end_idx = len(coords) - 1
+
+            n_points = end_idx - curr_ip_idx + 1
+            if n_points == 3:
+                end_region_idx = curr_ip_idx + 1
+            elif n_points < 3:
+                end_region_idx = end_idx
+            else:
+                if n_points % 2 == 0:
+                    end_region_idx = curr_ip_idx + n_points // 2
+                else:
+                    end_region_idx = curr_ip_idx + n_points // 2 + 1
+
+            length = coords[end_region_idx] - coords[start_idx]
+
+            region_type = -1 if second_derivatives[curr_ip_idx] > 0 else 1
+            regions.append(region_type)
+            region_axes.extend([[coords[start_idx],coords[end_idx]]])
+            region_lengths.append(length)
+
+            if n_points < 3:
+                start_idx = end_idx - 1
+            else:
+                start_idx = end_idx
+
+        # Handle the last region
+        curr_ip_idx = -1
+        end_idx = len(coords) - 1
+
+        region_type = -1 if second_derivatives[start_idx] > 0 else 1
+        regions.append(region_type)
+        region_axes.extend([[coords[start_idx],coords[end_idx]]])
+        region_lengths.append(coords[end_idx] - coords[start_idx])
+    else:
+        # If no inflection points are found, assume a single region
+        region_type = 0
+        regions.append(region_type)
+        region_lengths.append(coords[-1] - coords[0])
+        region_axes.extend([coords[0],coords[-1]])
+         
     return {
         'inflection_points': inflection_points,
         'regions': regions,
         'region_lengths': region_lengths,
-        'gradient_inflection_coord': grad_infl,
+        'region_axes':region_axes
     }
 
-def evaluate_reldisp_wall_section(coords, wallz, n):
+def calculate_reldisp_section(coords, wallz, n):
     """
     Evaluate the maximum relative displacement of a wall section.
 
@@ -115,7 +139,7 @@ def evaluate_reldisp_wall_section(coords, wallz, n):
                         max_rel_disp = disp
     return max_rel_disp
 
-def max_relative_displacement(wallz, coords, decimal_places=4):
+def max_relative_displacement(wallz, coords, tolerance, decimal_places=4):
     """
     Calculate the maximum relative displacement of a wall section.
 
@@ -128,39 +152,17 @@ def max_relative_displacement(wallz, coords, decimal_places=4):
            containing the inflection points and the maximum relative displacement for each deflection zone.
     """    
     max_rel_disp = []
-    infl_dict_ = find_inflection_points_and_regions(wallz,coords)
-
-    # Avoid carried floating-point errors from region detection
-    coords = [round(coord, decimal_places) for coord in coords]
+    infl_dict_ = find_inflection_points_and_regions(wallz,coords, tolerance = tolerance)
     infl_dict_['inflection_points'] = [round(pt, decimal_places) for pt in infl_dict_['inflection_points']]
+    coords = [round(coord, decimal_places) for coord in coords]
     
-    if len(infl_dict_['inflection_points']) == 0:
-        n = len(coords)
-        d_deflection = evaluate_reldisp_wall_section(coords, wallz, n)
-        max_rel_disp.append(abs(d_deflection))
-    else:
-        inflection_points = [coords[0]] + infl_dict_['inflection_points'] + [coords[-1]]
-        
-        region_start = inflection_points[0]
-        start_idx = coords.index(region_start)
-        for i in range(1, len(inflection_points)):
-            if i == len(inflection_points) - 1:
-                region_end = inflection_points[i]
-            else:
-                next_inflec_idx = coords.index(inflection_points[i + 1])
-                region_end = inflection_points[i + 1] if next_inflec_idx - start_idx > 1 else inflection_points[i]
+    for start,end in infl_dict_['region_axes']:
+        segment_coords = coords[coords.index(start):coords.index(end)+1]
+        segment_wallz = wallz[coords.index(start):coords.index(end)+1] 
+        n = len(segment_coords)
 
-            end_idx = coords.index(region_end)
-
-            segment_coords = coords[start_idx:end_idx + 1]
-            segment_wallz = wallz[start_idx:end_idx + 1]
-
-            n = len(segment_coords)
-            if n >= 2:
-                d_def = evaluate_reldisp_wall_section(segment_coords, segment_wallz, n)
-                max_rel_disp.append(abs(d_def))     
-
-            start_idx = end_idx     
+        d_def = calculate_reldisp_section(segment_coords, segment_wallz, n)
+        max_rel_disp.append(abs(d_def))     
 
     mrd_ = {'d_deflection_zone': max_rel_disp}     
     infl_dict_.update(mrd_)
@@ -194,9 +196,27 @@ def calculate_omega(wallz, x_coords):
         omega = np.arctan(np.abs(np.diff(wallz)[0]) / ((x_inflection[longest_period_index] - x_inflection[longest_period_index - 1])*1000))
     return omega
 
-def compute_sri(house, wall_num, key):
+def calculate_beta(wallz,coords,infl_dict_):
+    max_beta = 0
+    d1 = np.gradient(wallz, coords)
+    for start,end in infl_dict_['region_axes']:
+        start_idx = np.where(coords == start)[0][0]
+        end_idx = np.where(coords == end)[0][0]
+
+        d_zone = (wallz[end_idx] - wallz[start_idx]) / (coords[end_idx] - coords[start_idx])
+        d_left = d1[start_idx]
+        d_right = d1[end_idx]
+        
+        beta_left = abs(np.arctan(d_left) - np.arctan(d_zone))
+        beta_right = np.arctan(d_right) - np.arctan(d_zone)
+        max_beta_i = (beta_left + beta_right)/2
+        max_beta = max(max_beta, max_beta_i) 
+        
+    return max_beta
+
+def compute_sri(house, wall_num, key, tolerance = 0.05):
     """
-    Compute the Structural Reliability Index (SRI) for a given wall in a house.
+    Compute the Soil related intensity (SRI) factors for a given wall in a house.
 
     ## Parameters:
     - house (dict): A dictionary representing the house.
@@ -224,10 +244,10 @@ def compute_sri(house, wall_num, key):
         x = wall['y']
 
     s_vmax = min(wallz) - max(wallz)
-    d_deflection, infl_dict_ = max_relative_displacement(wallz, x)
+    d_deflection, infl_dict_ = max_relative_displacement(wallz, x, tolerance)
     phi = calculate_phi(wallz, x)
     omega = calculate_omega(wallz, x)
-    beta = abs(phi) + abs(omega)
+    beta = calculate_beta(wallz,x, infl_dict_)
 
     sri =  {'Smax': abs(min(wall['z'])),
             'dSmax': abs(s_vmax),

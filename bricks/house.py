@@ -2,7 +2,7 @@ import itertools
 from collections import defaultdict
 
 import numpy as np
-from pandas import DataFrame
+from pandas import DataFrame, set_option, options
 from scipy.interpolate import griddata
 from scipy.optimize import curve_fit
 from matplotlib.path import Path
@@ -180,7 +180,7 @@ class house:
         z_gaussian = griddata((x, y), z, (X, Y), method='cubic')
         self.soil['soil'] = {'x': X, 'y': Y, 'z': z_gaussian}
     
-    def SRI(self):
+    def SRI(self, tolerance = 0.05):
         """
         Calculates the Settlement related intensity (SRI) values for each wall in the house.
 
@@ -191,22 +191,9 @@ class house:
         self.soil['shape'] = {}
 
         for wall_num, key in enumerate(self.house):
-            sri_data, infl_dict_ = compute_sri(self.house, wall_num, key)
+            sri_data, infl_dict_ = compute_sri(self.house, wall_num, key, tolerance = tolerance)
             self.soil['sri'][key] = sri_data
             self.soil['shape'][key] = infl_dict_
-
-    def process_dfs(self, curr_dic_list, names):
-        """
-        Turn list of dictionaries into their respective dataframes
-
-        Args:
-            curr_dic_list (list): List of dictionaries containing the data to be converted into dataframes
-        """
-        for i, curr_dic in enumerate(curr_dic_list):
-            data_values = [list(inner_dict.values()) for inner_dict in curr_dic.values()]
-            columns = list(curr_dic[next(iter(curr_dic))].keys())
-            df = DataFrame(data_values, columns=columns)
-            self.dataframes[names[i]] = df
 
     @staticmethod
     def arrange_vertices_contiguously(keys):
@@ -270,5 +257,19 @@ class house:
 
         return {'3D' :[vertex for key in arranged_keys for vertex in grouped_vertices[key]],
                                 '2D' : [(key[0], key[1]) for key in arranged_keys] }
+    
+    def process_dfs(self, curr_dic_list, names):
+        """
+        Turn list of dictionaries into their respective dataframes
+
+        Args:
+            curr_dic_list (list): List of dictionaries containing the data to be converted into dataframes
+        """
+        options.display.float_format = lambda x: "{:.2e}".format(x)
+        for i, curr_dic in enumerate(curr_dic_list):
+            data_values = [list(inner_dict.values()) for inner_dict in curr_dic.values()]
+            columns = list(curr_dic[next(iter(curr_dic))].keys())
+            df = DataFrame(data_values, columns=columns)
+            self.dataframes[names[i]] = df
 
         
