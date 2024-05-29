@@ -3,7 +3,7 @@ name: Deploy Jupyter Notebook to GitHub Pages
 on:
   push:
     branches:
-      - main  # Ensure this matches your default branch
+      - publish  
 
 jobs:
   deploy:
@@ -24,7 +24,7 @@ jobs:
         jupyter nbconvert --to html Ijsselsteinseweg_77.ipynb --output-dir public_html
 
     - name: Rename converted HTML file to index.html
-      run: mv public_html/your_notebook.html public_html/index.html
+      run: mv public_html/Ijsselsteinseweg_77.html public_html/index.html
 
     - name: Deploy to GitHub Pages
       uses: peaceiris/actions-gh-pages@v3
