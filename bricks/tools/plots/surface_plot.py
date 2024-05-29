@@ -285,7 +285,7 @@ def subsurface(OBJECT, *params):
 
     figures_info = [
         ('Wall Displacement', wall_displacement(OBJECT)),
-        ('Plot Surface', plot_surface(*params)),
+        #('Plot Surface', plot_surface(*params)),
         ('Subsidence', subsidence(OBJECT, building=False, soil=True, deformation=True))
     ]
     tab_style = {
@@ -293,7 +293,6 @@ def subsurface(OBJECT, *params):
         'color': '#3a4d6b'
     }
 
-    # Create tabs dynamically
     tabs = [
         dcc.Tab(label=label, children=[
             dcc.Graph(figure=figure),],
