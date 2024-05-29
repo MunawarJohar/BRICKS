@@ -64,7 +64,7 @@ plots.subsidence(ijsselsteinseweg, building = False, soil= True, deformation= Tr
 The surface can the be visualised as follows,
 
 
-<img src="_data\fig\subsidence_surface.png">
+<img src="public_html\_data\fig\subsidence_surface.png">
 
 **Figure 5:** Visualised aproximated soil surface for Ijsselsteinseweg 77.
 
@@ -85,7 +85,7 @@ app.run_server(port=8051, debug=False)
 ```
 The output will be a report with the assessment state source and SRI parameter evaluated. As can be seen above the making use of `bricks.tools` the `EM_plot()` can be called which will help you visualise the assessments reports. An example of the above is the following,
 
-<img src="_data\fig\EM_assess.png">
+<img src="public_html\_data\fig\EM_assess.png">
 
 **Figure 6:** Visualisation matrix of results from different assessment methods
 
@@ -105,7 +105,7 @@ app.run_server(debug=False)
 
 The produced plot when performing the evaluation is the following,
 
-<img src="_data\fig\LTSM_assess.png">
+<img src="public_html\_data\fig\LTSM_assess.png">
 
 **Figure 7:** Visualisation of LTSM
 
