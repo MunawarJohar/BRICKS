@@ -183,7 +183,7 @@ def LTSM_plot(object):
                     y=[None],
                     mode='markers',
                     marker=dict(
-                        colorscale='RdYlGn',
+                        colorscale='RdYlGn_r',
                         cmin=0,
                         cmax=5,
                         colorbar=dict(

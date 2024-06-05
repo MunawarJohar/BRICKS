@@ -43,7 +43,7 @@ def EM_plot(report):
             zmin=0,
             zmax=5,
             colorbar=dict(
-                title='Damage Level:<br> ',
+                title='Damage Level:<br> <br>',
                 titleside='top',
                 tickmode='array',
                 tickvals=[0, 1, 2, 3, 4, 5],
@@ -55,8 +55,13 @@ def EM_plot(report):
             customdata=np.array(description_annotations)
         )
 
+        # assessments = data_matrix.flatten()
+        # comments = description_annotations[0]
+        # ind = np.argmax(assessments)
+        # cat = comments[ind]
+
         layout = go.Layout(
-            #title=f'{wall.capitalize()} Empirical Assessment',
+            #title=f'EM assessment {wall.capitalize()} | DL = {cat}',
             xaxis=dict(
                 title='Literature Source',
                 side='bottom',
@@ -69,17 +74,6 @@ def EM_plot(report):
                 gridcolor='lightgray',
                 autorange='reversed'
             ),
-            annotations=[
-                dict(
-                    xref='paper',
-                    yref='paper',
-                    x=0.5,
-                    y=-0.2,
-                    showarrow=False,
-                    text=f'Data Source: SRI assessment for {wall.capitalize()}',
-                    font=dict(size=12)
-                )
-            ],
             template='plotly_white',
             margin=dict(l=100, r=20, t=40, b=100)
         )

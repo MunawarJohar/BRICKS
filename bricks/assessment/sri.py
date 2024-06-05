@@ -170,6 +170,17 @@ def max_relative_displacement(wallz, coords, tolerance, decimal_places=4):
     return d_deflection, infl_dict_
             
 def calculate_phi(wallz, coords):
+    """
+    Calculate the phi value based on the wallz and coords arrays.
+
+    Parameters:
+    - wallz (array-like): An array containing the wallz values.
+    - coords (array-like): An array containing the coordinates.
+
+    Returns:
+    - phi (float or None): The calculated phi value. Returns None if the calculation is not possible.
+
+    """
     ind_min = np.argmin(wallz)
     wmin = wallz[ind_min]
     adjacent_indices = [ind_min - 1, ind_min + 1]
@@ -186,6 +197,17 @@ def calculate_phi(wallz, coords):
     return phi
 
 def calculate_omega(wallz, x_coords):
+    """
+    Calculate the omega value based on the wallz and x_coords arrays.
+
+    Parameters:
+    - wallz (numpy.ndarray): Array containing the wallz values.
+    - x_coords (numpy.ndarray): Array containing the x-coordinates.
+
+    Returns:
+    - omega (float): The calculated omega value.
+
+    """
     inflection_indices = np.where(np.diff(np.sign(np.diff(wallz))) != 0)[0] + 1
     if len(inflection_indices) < 2:
         omega = np.arctan(np.abs(np.diff(wallz)[0]) / ((x_coords[-1] - x_coords[0])*1000))
@@ -196,10 +218,22 @@ def calculate_omega(wallz, x_coords):
         omega = np.arctan(np.abs(np.diff(wallz)[0]) / ((x_inflection[longest_period_index] - x_inflection[longest_period_index - 1])*1000))
     return omega
 
-def calculate_beta(wallz,coords,infl_dict_):
+def calculate_beta(wallz, coords, infl_dict_):
+    """
+    Calculate the maximum beta value for a given wall profile.
+
+    Parameters:
+    wallz (numpy.ndarray): Array of wall heights.
+    coords (numpy.ndarray): Array of coordinates corresponding to the wall heights.
+    infl_dict_ (dict): Dictionary containing information about the regions of interest.
+
+    Returns:
+    float: Maximum beta value.
+
+    """
     max_beta = 0
     d1 = np.gradient(wallz, coords)
-    for start,end in infl_dict_['region_axes']:
+    for start, end in infl_dict_['region_axes']:
         start_idx = np.where(coords == start)[0][0]
         end_idx = np.where(coords == end)[0][0]
 
@@ -209,7 +243,7 @@ def calculate_beta(wallz,coords,infl_dict_):
         
         beta_left = abs(np.arctan(d_left) - np.arctan(d_zone))
         beta_right = np.arctan(d_right) - np.arctan(d_zone)
-        max_beta_i = (beta_left + beta_right)/2
+        max_beta_i = (beta_left + beta_right) / 2
         max_beta = max(max_beta, max_beta_i) 
         
     return max_beta
