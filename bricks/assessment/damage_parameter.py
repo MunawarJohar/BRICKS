@@ -47,13 +47,15 @@ def compute_damage_parameter(damage: dict = None, object = None) -> dict:
 
         psi = 2* n_c**0.15 * c_w**0.3
         mu = area * psi
-        dam_pw[wall] =  {'area' : area,
+        dl = eval_dl(psi)
+        dam_pw_ =  {'area' : area,
                         'n_c' : n_c,
                         'c_w ': c_w,
-                        'psi': psi}
+                        'psi': psi,
+                        'DL': dl}
         dam_pw[wall] = {key: round(value, 2) 
                         for key, value 
-                        in {'area': area, 'n_c': n_c, 'c_w': c_w, 'psi': psi}.items()}
+                        in dam_pw_.items()}
 
     num = 0
     den = 0
@@ -65,3 +67,14 @@ def compute_damage_parameter(damage: dict = None, object = None) -> dict:
 
     return {'psi_building': psi_building,
             'psi_wall': dam_pw}
+
+
+def eval_dl(psi):
+    psi_thresholds = [1,1.5,2.5,3.5,float('inf')]
+    dl = [0,1,2,3,4]
+    for i,threshold in enumerate(psi_thresholds):
+        if psi > threshold:
+            continue
+        else:
+            break
+    return dl[i]

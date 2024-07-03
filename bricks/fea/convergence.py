@@ -1,70 +1,82 @@
 import re
-import csv
+import os
+import time
 from datetime import datetime
 
 import numpy as np
+from matplotlib.pyplot import close
 
 # ----------------------------- Model information ---------------------------- #
-
 def calculate_runtime(filename):
+        
     start_time = end_time = None
-    pattern = r"/DIANA/AP/NL41\s+(\d{2}:\d{2}:\d{2})"
+    pattern_start = r"/DIANA/AP/NL41\s+(\d{2}:\d{2}:\d{2})"
+    pattern_end = r"/DIANA/DC/END\s+(\d{2}:\d{2}:\d{2})"
 
     with open(filename, 'r') as file:
         for line in file:
-            match = re.search(pattern, line)
-            if match:
-                time_str = match.group(1)
-                time = datetime.strptime(time_str, "%H:%M:%S")
-                if start_time is None:
-                    start_time = time
-                else:
-                    end_time = time
+            match_start = re.search(pattern_start, line)
+            if match_start:
+                time_str = match_start.group(1)
+                start_time = datetime.strptime(time_str, "%H:%M:%S")
+            
+            match_end = re.search(pattern_end, line)
+            if match_end:
+                time_str = match_end.group(1)
+                end_time = datetime.strptime(time_str, "%H:%M:%S")
 
     if start_time and end_time:
-        runtime = end_time - start_time
-        return runtime
+        difference = end_time - start_time
+        runtime = time.strftime('%H:%M:%S', time.gmtime(difference.total_seconds()))
     else:
-        return None
+        runtime = 'NaN'
 
-def write_to_txt(directory,filename, data):
-    filepath = os.path.join(directory, filename)
+    return runtime
 
-    with open(filepath, 'w') as file:
-        print('\t'.join(data.keys()), file=file)
-
-        for values in zip(*data.values()):
-            print('\t'.join(map(str, values)), file=file)
-
-
-def model_info(filename,direcotry):
-    runtime = calculate_runtime(filename)
+def write_to_txt(directory, model_name, data):
+    # Save some information in a txt file in the 'analysis' directory
+    info_path = os.path.join(directory, 'info.txt')
     
-    subdirectories = direcotry.split(os.sep)
-    model_name = '-'.join(subdirectories)
+    if os.path.exists(info_path):
+        os.remove(info_path)  # remove the file if it already exists
+    
+    with open(info_path, 'w') as file:
+        print(f'MODEL ANALYSIS information for model: {model_name.capitalize()}', file=file)
+        print('----------------------------------------------------------\n', file=file)
+        
+        # Write headers
+        headers = '\t'.join(data.keys())
+        print(headers, file=file)
+        
+        # Find the maximum number of rows in the data
+        max_rows = max(len(value) for value in data.values())
+        
+        # Write the data rows
+        for i in range(max_rows):
+            row = []
+            for key in data.keys():
+                if i < len(data[key]):
+                    row.append(data[key][i])
+                else:
+                    row.append('')  # Empty string if there is no value for this column
+            print('\t'.join(row), file=file)
 
-    info = {
+    return file
+
+def model_info(file_path,directory):
+    runtime = calculate_runtime(file_path)
+        
+    subdirectories = directory.split(os.sep)
+    ind = subdirectories.index('Models')
+    mask_subd = subdirectories[ind+1:]
+    model_name = '-'.join(mask_subd)
+
+    data = {
         'Model': [model_name],
         'Run time': [runtime],
     }
 
-    return info
-
-def get_files(directory, extension):
-    """
-    Walks through a directory and returns all files with a specific extension.
-
-    Args:
-        directory (str): The directory to walk through.
-        extension (str): The file extension to look for.
-
-    Returns:
-        list: A list of file paths that match the extension.
-    """
-    return [os.path.join(root, file)
-            for root, dirs, files in os.walk(directory)
-            for file in files
-            if file.endswith(extension)]
+    return data
 
 # ----------------------------- Model analysis ------------------------------ #
 def read_file(filepath):
@@ -72,7 +84,7 @@ def read_file(filepath):
         lines = fileOUT.readlines()
     return lines
 
-def parse_lines(lines,phase):
+def parse_lines(lines):
     Iterations = {}
     NoConvergenceSteps = []
     CurrentStepIndex = 0
@@ -97,7 +109,7 @@ def parse_lines(lines,phase):
         if (fileOUT_string[0] == 'PHASE') and (PhaseYN == 1):
             #Save phase number and make dictionary for the phase
             Temporary = fileOUT_string[1]
-            KeyLabel = 'Phase ' + str(phase)
+            KeyLabel = 'Phase ' 
             CurrentPhase = KeyLabel
             Iterations[KeyLabel] = {'Plastic_int': [], 'Crack_points': [], 'no_iter': [],
                                     "force_norm": [], "disp_norm": [], "energy_norm": [],
@@ -106,7 +118,7 @@ def parse_lines(lines,phase):
         # Check for step initiation
         if (fileOUT_string[0] == 'STEP') and (fileOUT_string[2] == 'INITIATED:'):
             if PhaseYN == 0:
-                KeyLabel = 'Phase ' + str(phase)
+                KeyLabel = 'Phase '
                 CurrentPhase = KeyLabel
                 Iterations[KeyLabel] = {'Plastic_int': [], 'Crack_points': [], 'no_iter': [],
                                         "force_norm": [], "disp_norm": [], "energy_norm": [],
@@ -162,7 +174,8 @@ def parse_lines(lines,phase):
 
         if (fileOUT_string[0] == 'STEP') and (fileOUT_string[2] == 'TERMINATED,'):
             if fileOUT_string[3] == 'NO':
-                Temporary = int(fileOUT_string[6])
+                n_iter = re.findall(r'\d+', fileOUT_string[5])
+                Temporary = int(n_iter[0])
                 NoConvergenceSteps.append(CurrentStepIndex)
                 with open("Convergence.txt", "a") as a_file:
                     a_file.write(f"Non-converged step number: {CurrentStepIndex}\n\n")
@@ -186,3 +199,59 @@ def parse_lines(lines,phase):
             Iterations[CurrentPhase]["no_iter"].append(Temporary)
 
     return Iterations, NoConvergenceSteps
+
+# ----------------------------------- Main ----------------------------------- #
+
+def model_convergence(dir):
+    """
+    This function prompts the user to enter the full path of a .OUT file,
+    reads the file, parses the lines, and plots the results.
+
+    Args:
+        None
+
+    Returns:
+        None
+    """
+    lines = read_file(dir)
+    iter, ncsteps = parse_lines(lines)
+    figures = plot_results(iter, ncsteps)
+    return figures
+
+def single_model_analysis(file_path):
+    
+    directory = os.path.dirname(file_path)
+    analysis_dir = os.path.join(directory, 'analysis')
+    os.makedirs(analysis_dir, exist_ok=True)
+
+    # Perform the analysis
+    figures, titles = model_convergence(file_path)    
+    for i, fig in enumerate(figures, start=1): # Save the figures
+        fig_path = os.path.join(analysis_dir, f'{titles[i-1]}.png')
+        if os.path.exists(fig_path):
+            os.remove(fig_path)  # remove the file if it already exists
+        fig.savefig(fig_path)
+        close()
+
+    # Write model information
+    minfo = model_info(file_path,directory)
+    write_to_txt(analysis_dir, minfo['Model'][0], minfo)
+
+def analyse_models(modelling_directory):
+    failed_files = []
+    for root, _ , files in os.walk(modelling_directory):
+        for file in files:
+            if file.endswith('.out'):
+                file_path = os.path.join(root, file)
+                try:
+                    single_model_analysis(file_path)
+                except Exception as e:
+                    failed_files.append(file_path)
+                    print(f"Error processing file {file_path}: {e}")
+    
+    if failed_files:
+        print("\nThe following files could not be processed:")
+        for failed_file in failed_files:
+            print(failed_file)
+
+

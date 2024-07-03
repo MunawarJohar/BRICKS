@@ -5,7 +5,7 @@ from plotly.subplots import make_subplots
 from dash import Dash, dcc, html
 from plotly.subplots import make_subplots
 
-from ...assessment.utils import gaussian_shape
+from ....assessment.utils import gaussian_shape
 
 def plot_surface(x_mesh, y_mesh, z_lin, z_qint):
 
