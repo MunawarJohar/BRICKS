@@ -1,41 +1,34 @@
-from numpy import array
-from numpy import gradient
-from numpy import exp
-from scipy.interpolate import griddata
+import numpy as np
 
-def interpolate_2d(x_boundary, y_boundary, z_boundary, x_values, y_values, method):
-    Z_interpolation = griddata((x_boundary, y_boundary), z_boundary, (x_values, y_values), method=method)
-    return Z_interpolation
+def process(coords, abs_disp, max_rate, rate_multiple):
+    coords = coords - min(coords)
+    rel_disp = np.insert(np.diff(abs_disp),0,0)
 
-def gaussian_shape(x, s_vmax, x_inflection):
-    gauss_func = s_vmax * exp(-x**2/ (2*x_inflection**2))
-    return gauss_func
+    rel_iter = find_iter(rel_disp, max_rate, rate_multiple)
+    abs_iter = find_iter(abs_disp, max_rate, rate_multiple)
+    print(rel_iter, abs_iter)
+    dydt_abs = abs_disp//abs_iter
+    dydt_rel = rel_disp//rel_iter
 
-def find_root_iterative(guess, parameters, tolerance, step):
-    output = gaussian_shape(guess, parameters[0],parameters[1])
-    while abs(output) > tolerance:
-        guess += step 
-        output = gaussian_shape(guess, *parameters)
-    return guess
+    dydx_abs = np.gradient(dydt_abs,coords)
+    dydx_rel = np.gradient(dydt_rel,coords)
+    
+    return dydx_abs/dydx_rel
 
-def get_range(wall, key):
-    start = int(wall[key].min())*10
-    stop = int(wall[key].max())*10
+def find_iter(abs_disp, max_rate, rate_multiple = False):
+    """
+    Calculates the number of iterations based on the absolute displacement, maximum rate, and rate multiple.
 
-    if start == stop:
-        if start != 100:
-            stop += 1
-        else:
-            start -= 1
-            stop += 1
-            return [99]
-    return list(range(start, stop))
+    Parameters:
+    abs_disp (list): A list of absolute displacements.
+    max_rate (float): The maximum rate.
+    rate_multiple (float): The rate multiple.
 
-def hwall_length(wall,i):
-    if i % 2 == 0:  
-        xi = wall['x'].min()
-        xj = wall['x'].max()    
-    else:  # Wall along x axis
-        xi = wall['y'].min()
-        xj = wall['y'].max()
-    return xj - xi
+    Returns:
+    int: The number of iterations.
+
+    """
+    iter = max(abs(abs_disp)) // max_rate
+    if rate_multiple:
+        iter = iter + rate_multiple - iter % rate_multiple
+    return iter

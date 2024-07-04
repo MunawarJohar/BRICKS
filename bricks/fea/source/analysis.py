@@ -1,3 +1,8 @@
+def read_file(filepath):
+    with open(filepath, "r") as fileOUT:
+        lines = fileOUT.readlines()
+    return lines
+
 def tab_nodes(words,step_n,values):
 
     if words[:2] == ['Elmnr', 'Nodnr']:
@@ -93,8 +98,7 @@ def process_tabulated_analysis(file_path):
     intpnt = None
     values = False
     
-    with open(file_path, 'r') as file:
-        lines = file.readlines()
+    lines = read_file(file_path)
 
     for line in lines[1:]:
         Nodes = False
