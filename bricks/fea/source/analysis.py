@@ -1,132 +1,148 @@
+import traceback
+import numpy as np
+import pandas as pd
+
+def process_data_row(data_string):
+    count = 0
+    values = []
+
+    while count < len(data_string):
+        string = data_string[count:count+10]
+        string = string.strip()
+        if string:
+            try:
+                value = float(string)
+            except ValueError as e:
+                print(f"Error converting string to float: {string} - {e}")
+                value = np.nan
+        else:
+            value = np.nan
+        values.append(value)
+        count += 11  # Move past the 10 spaces and the character after it
+
+    return values
+
 def read_file(filepath):
-    with open(filepath, "r") as fileOUT:
-        lines = fileOUT.readlines()
+    with open(filepath, "r") as file:
+        lines = file.readlines()
     return lines
 
-def tab_nodes(words,step_n,values):
+def process_tabulated(file_path):
 
-    if words[:2] == ['Elmnr', 'Nodnr']:
-        variables = words[2:]
-        length = len(words)
-        values = True
-
-    if words[0] == 'Output':
-        values = False
-
-    if values:
-        record = {'Step': step_n}
-
-        if len(words) == length:
-            elmn_n, nodn_n = map(int, words[:2])
-            record['Elmnr'] = elmn_n
-            record['Nodnr'] = nodn_n
-
-            for i, var in enumerate(variables):
-                record[var] = float(words[2 + i])
-
-        elif len(words) == length - 1:
-            nodn_n = int(words[0])
-            record['Elmnr'] = elmn_n
-            record['Nodnr'] = nodn_n
-
-            for i, var in enumerate(variables):
-                record[var] = float(words[1 + i])
-
-        data_list.append(record)
-        
-    return data_list, values
-
-# def tab_ips(words,step_n,values):
-
-#     if words[:2] == ['Elmnr', 'Intpt']:
-#         variables = words[2:]
-#         length = len(words)
-#         values = True
-#         continue
-
-#     if words[0] == 'Output':
-#         values = False
-#         continue
-
-#     if values:
-#         current_elmnr = None
-
-#         if all(element.isdigit() for element in values[:2]):
-#             # If the first value is a digit, it is Elmnr
-#             current_elmnr = int(words[0])
-#             intpt = int(words[1])
-#             rest_values = words[2:]
-#         else:
-#             # Otherwise, Elmnr is the current_elmnr and the first value is Intpt
-#             intpt = int(words[0])
-#             rest_values = words[1:]
-
-#         # Convert the remaining values to floats or NaN if they are empty
-#         float_values = [float(v) if v else np.nan for v in rest_values]
-
-#         # Ensure the float_values list has the right length by filling missing values with NaN
-#         while len(float_values) < 9:
-#             float_values.append(np.nan)
-
-#         # Create a record with the current Elmnr, Intpt, and the rest of the values
-#         record = [current_elmnr, intpt] + float_values[:9]  # Ensure only 9 additional values are taken
-
-
-
-#     if values:
-#         record = {'Step': step_n}
-
-#         if len(words) == length:
-#             elmn_n, intpt = map(int, words[:2])
-#             record['Elmnr'] = elmn_n
-#             record['Intpt'] = intpt
-
-#             for i, var in enumerate(variables):
-#                 record[var] = float(words[2 + i])
-
-#         data_list.append(record)
-
-#     return data_list, values
-
-def process_tabulated_analysis(file_path):
     data_list = []
-    variables = []
-    length = 0
+    info = {}
+    errors = []
 
     step_n = None
     nodes = None
     intpnt = None
     values = False
-    
+    coordinates = False
+
     lines = read_file(file_path)
 
-    for line in lines[1:]:
-        Nodes = False
-        Intpnt = False
-        words = line.split()
+    for lin_num, line in enumerate(lines):
+        try:
+            words = line.split()
 
-        if not words:
-            continue
+            if not words:  # Skip empty lines
+                values = False
+                coordinates = False
+                continue    
 
-        if words[:2] == ['Step', 'nr.']:
-            step_n = words[2]
-            continue
-        
-        if words[0] == 'Output':
-            values = False
-        if words[1] == 'NODES':
-            Nodes = True
-            Intpnt = False
+            if words[:2] == ['Analysis', 'type']:  # Extract analysis type
+                atype = words[-1]
+                info['Analysis type'] = atype
 
-        if nodes:    
-            data_list_nodes, values = tab_nodes(words,step_n, values) #Processing  
+                if lines[lin_num+1].split()[:2] == ['Step', 'nr.']:
+                    step_n = lines[lin_num+1].split()[-1]
+                    info['Step nr.'] = step_n
+                if lines[lin_num+2].split()[:2] == ['Load', 'factor']:
+                    lf = lines[lin_num+2].split()[-1]
+                    info['Load factor'] = lf    
+                continue
 
-        if words[1] == 'INTPNT':
-            Nodes = False
-            Intpnt = True
-        if intpnt:
-            words = re.split(r'\s+', line.strip())
-            data_list_intpnt, values = tab_intpnt(words,step_n, values)
-        
-    return data_list_nodes, data_list_intpnt
+            if words[:2] == ['Elmnr', 'Intpt']: 
+                coord = ['X0','Y0','Z0']
+                if words[-3:] == coord:
+                    variables = words[2:-3]
+                    coordinates = True
+                    ncoord = len([equal for equal in words if equal in set(coord)])
+                else: 
+                    variables = words[2:]
+                values = True
+                intpnt = True
+                nodes = False
+                continue
+            elif words[0] == 'Nodnr':
+                coord = ['X0','Y0']
+                if words[-2:] == coord:
+                    variables = words[2:-2]
+                    coordinates = True
+                    ncoord = len([equal for equal in words if equal in set(coord)])
+                else: 
+                    variables = words[2:]
+                values = True 
+                nodes = True
+                intpnt = False
+                continue
 
+            if values and intpnt:  # Improve implementation not very resilient
+                
+                if line[1:6].strip().isdigit():
+                    elmn_n = int(line[1:6])
+                nodn_n = int(line[7:12])
+                
+                vals = {'Element': elmn_n, 'Integration Point': nodn_n}
+
+                if coordinates:
+                    count = ncoord*10 + (ncoord-1) + 3
+                    data_string = line[15:-count]
+                else:
+                    data_string = line[15:]
+                data = process_data_row(data_string)
+                for j, var in enumerate(variables):
+                    vals[var] = float(data[j])
+
+                coord_val = data_string[-count+1:]
+                x,y,z,_ = process_data_row(coord_val)
+                coord_vals = {'X0': x, 'Y0': y,'Z0': z}
+
+                record = {**info,**coord_vals,**vals}
+                data_list.append(record)
+                continue
+
+            if values and nodes:  # Improve implementation not very resilient
+                nodn_n = int(line[1:6])
+
+                if coordinates:
+                    count = ncoord*10 + (ncoord-1) + 3
+                    data_string = line[9:-count]
+                else:
+                    data_string = line[9:]
+
+                data = process_data_row(data_string)
+                vals = {'Node': nodn_n}
+                for j, var in enumerate(variables):
+                    vals[var] = float(data[j])
+                
+                coord_val = data_string[-count+1:]
+                x,y,_ = process_data_row(coord_val)
+                coord_vals = {'X0': x, 'Y0': y}
+
+                record = {**info, **coord_vals, **vals}
+                data_list.append(record)
+                continue
+            
+        except Exception as e:
+            errors.append((lin_num, str(e)))
+            traceback.print_exc()
+            if len(errors) >= 1:
+                print("Error limit reached, stopping processing.")
+                return errors
+
+    df = pd.DataFrame(data_list)
+    col = df.pop('Node')
+    insert = df.columns.get_loc('Element') + 1
+    df.insert(insert_at, 'Node', col)
+    return df
