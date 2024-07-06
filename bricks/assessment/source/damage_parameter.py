@@ -40,7 +40,7 @@ def compute_damage_parameter(damage: dict = None, object = None) -> dict:
         for key in rel_walls:
             param = damage[key]
             n_c += [key]
-            c_w_n += [damage[key]['c2_w']]
+            c_w_n += [param['c2_w']]
             c_w_d += [param['c_w'] * param['c_l']]
         n_c = len(n_c)
         c_w = sum(c_w_n) / sum(c_w_d) if len(c_w_d) != 0 else 0

@@ -2,7 +2,22 @@ import traceback
 import numpy as np
 import pandas as pd
 
+from .utils import compute_damage_parameter, find_mean_cw
+
 def process_data_row(data_string):
+    """
+    Process a data row string and convert it into a list of floating-point values.
+
+    Args:
+        data_string (str): The input data string to be processed.
+
+    Returns:
+        list: A list of floating-point values extracted from the data string.
+
+    Raises:
+        ValueError: If the string cannot be converted to a float.
+
+    """
     count = 0
     values = []
 
@@ -28,7 +43,19 @@ def read_file(filepath):
     return lines
 
 def process_tabulated(file_path):
+    """
+    Process a tabulated file and return a pandas DataFrame.
 
+    Args:
+        file_path (str): The path to the tabulated file.
+
+    Returns:
+        pandas.DataFrame: The processed data as a DataFrame.
+
+    Raises:
+        Exception: If an error occurs during processing.
+
+    """
     data_list = []
     info = {}
     errors = []
@@ -56,10 +83,10 @@ def process_tabulated(file_path):
 
                 if lines[lin_num+1].split()[:2] == ['Step', 'nr.']:
                     step_n = lines[lin_num+1].split()[-1]
-                    info['Step nr.'] = step_n
+                    info['Step nr.'] = int(step_n)
                 if lines[lin_num+2].split()[:2] == ['Load', 'factor']:
                     lf = lines[lin_num+2].split()[-1]
-                    info['Load factor'] = lf    
+                    info['Load factor'] = float(lf)    
                 continue
 
             if words[:2] == ['Elmnr', 'Intpt']: 
@@ -77,11 +104,11 @@ def process_tabulated(file_path):
             elif words[0] == 'Nodnr':
                 coord = ['X0','Y0']
                 if words[-2:] == coord:
-                    variables = words[2:-2]
+                    variables = words[1:-2]
                     coordinates = True
                     ncoord = len([equal for equal in words if equal in set(coord)])
                 else: 
-                    variables = words[2:]
+                    variables = words[1:]
                 values = True 
                 nodes = True
                 intpnt = False
@@ -104,7 +131,7 @@ def process_tabulated(file_path):
                 for j, var in enumerate(variables):
                     vals[var] = float(data[j])
 
-                coord_val = data_string[-count+1:]
+                coord_val = line[-count+1:]
                 x,y,z,_ = process_data_row(coord_val)
                 coord_vals = {'X0': x, 'Y0': y,'Z0': z}
 
@@ -126,7 +153,7 @@ def process_tabulated(file_path):
                 for j, var in enumerate(variables):
                     vals[var] = float(data[j])
                 
-                coord_val = data_string[-count+1:]
+                coord_val = line[-count+1:]
                 x,y,_ = process_data_row(coord_val)
                 coord_vals = {'X0': x, 'Y0': y}
 
@@ -144,5 +171,24 @@ def process_tabulated(file_path):
     df = pd.DataFrame(data_list)
     col = df.pop('Node')
     insert = df.columns.get_loc('Element') + 1
-    df.insert(insert_at, 'Node', col)
+    df.insert(insert, 'Node', col)
     return df
+
+def analyse_tabulated(df, analysis_info):
+    
+    data = {}
+    for analysis in analysis_info:
+        vals = []
+        if 'Crack' in analysis:
+            for EOI in analysis_info[analysis]['EOI']:
+                vals.append(find_mean_cw(EOI, df))
+        if 'Displacement' in analysis:
+            for node in analysis_info[analysis]['Node Nr']:
+                u = df[df['Node'] == node][['Step nr.', 'TDtY']]
+                vals.append(u)
+        if 'Damage' in analysis:
+            damage = analysis_info[analysis]['parameters']['cracks']
+            c_w = compute_damage_parameter(df, damage)
+            vals.append(c_w)
+        data[analysis] = vals
+    return data

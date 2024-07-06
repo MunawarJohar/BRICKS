@@ -6,6 +6,8 @@ from datetime import datetime
 import numpy as np
 from matplotlib.pyplot import close
 
+from ..plots.plots import plotconvergence
+
 # ----------------------------- Model information ---------------------------- #
 def calculate_runtime(filename):
         
@@ -215,13 +217,13 @@ def model_convergence(dir):
     """
     lines = read_file(dir)
     iter, ncsteps = parse_lines(lines)
-    figures = plot_results(iter, ncsteps)
+    figures = plotconvergence(iter, ncsteps)
     return figures
 
 def single_model_analysis(file_path):
     
     directory = os.path.dirname(file_path)
-    analysis_dir = os.path.join(directory, 'analysis')
+    analysis_dir = os.path.join(directory, 'analysis/convergence')
     os.makedirs(analysis_dir, exist_ok=True)
 
     # Perform the analysis
