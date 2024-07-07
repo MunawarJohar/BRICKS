@@ -17,4 +17,9 @@ The analysis of tabulated data will only work with the following tabulated outpu
 - Output all variables through RESULT -> User selection (Variables outputted to Nodes and IntPnts need to be put in different outputs, in the end the results will be appended to the same file)
 - Result -> User Selection -> Properties -> Options : Location Coordinates
 
+Other considerations, 
+
+- Plots and analysis have been made assuming SI Units except for length which has been outputted in mm
+- The analysis do not output the units therefore these have to be checked before outputting any values
+
 ## Considerations when using plots.py

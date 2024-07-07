@@ -1,9 +1,10 @@
 import numpy as np
 import matplotlib.pyplot as plt
+from matplotlib.ticker import ScalarFormatter
 
 from .style import *
 
-def plotconvergence(iterations, noconvergencesteps):
+def plotconvergence(iterations, noconvergencesteps, minfo):
     """
     Plot the results of the analysis.
 
@@ -24,8 +25,8 @@ def plotconvergence(iterations, noconvergencesteps):
     figures = []
     figures_titles = []
     ylabels = [
-        "Nº of plastic IP's", "Nº of cracks",
-        "Nº of solver iterations", r"Force norm $|\Delta_f|$",
+        "Nº of plastic IP's", "Nº of cracks $n_c$",
+        "Nº of solver iterations $n_{iter}$", r"Force norm $|\Delta_f|$",
         r"Displacement norm $|\Delta_u|$", r"Energy norm $|\Delta_E|$"
     ]
     
@@ -45,7 +46,7 @@ def plotconvergence(iterations, noconvergencesteps):
         if not items or not isinstance(items, list):
             continue
 
-        fig, ax = plt.subplots(figsize=(6, 4))
+        fig, ax = plt.subplots(figsize=(8, 6))
         figures.append(fig)
         title = titles[item_count]
         figures_titles.append(title)  # Append the corresponding title
@@ -64,18 +65,18 @@ def plotconvergence(iterations, noconvergencesteps):
             else:
                 y = items
 
-            ax.plot(load_factor, y, '-', label=traces[item_count], linewidth=0.5, 
-                    markersize= 1, marker='s', markerfacecolor='none')
+            ax.plot(load_factor, y, label=traces[item_count], 
+                    marker='s', markerfacecolor='none')
             
             if title == "Solver iteration steps":
                 ax.plot(
                     [noconvergencesteps[i]/x_max for i in range(len(noconvergencesteps))],
                     [y[i-1] for i in noconvergencesteps],
-                    linewidth=0.5, markersize=2, marker='s', markerfacecolor='none', linestyle='None',
+                    linewidth=0.5, markersize=3, marker='s', markerfacecolor='none', linestyle='None',
                     label='Non-converged steps', color = 'red'
                 )
                 ax.legend(loc='best')
-                plt.ylim(0, max(y) * 1.2)
+                plt.ylim(0, max(y) * 1.15)
 
             y_lim = None
             legend_labels = []
@@ -91,8 +92,14 @@ def plotconvergence(iterations, noconvergencesteps):
             if y_lim is not None:
                 ax.plot(load_factor, y_lim, "-", label='Out of balance threshold', linewidth=0.5, color = 'red')
                 ax.legend(legend_labels, loc='best')
-                y_max = max(max(y_lim),np.max(y)) * 1.2
-                plt.ylim(0, y_max)
+                y_max = max(max(y_lim),np.max(y))
+                plt.ylim(0, y_max * 1.15)
+            ax.annotate(f"Model: {minfo['Model'][0]}\nSolution time: {minfo['Run time'][0]} [hh:mm:ss]\nNº Elements: {str(minfo['N Elements'][0])}  Nº Nodes: {str(minfo['N Nodes'][0])}",
+                    xy=(0.02, 0.98), xycoords='axes fraction',  
+                    va='top', ha='left', fontsize=8, color='black',
+                    bbox=dict(facecolor='white', edgecolor='none', alpha=0.7),
+                    annotation_clip=True  
+                )
 
         ax.set_xlabel(r'Load factor $\lambda$')
         ax.set_ylabel(ylabels[item_count])
@@ -160,17 +167,28 @@ def plotanalysis(data, analysis_info, plot_settings):
 
     for plot_key, info in analysis_info.items():
         fig, ax = plt.subplots(figsize=(8, 6))
-        figures.append(fig)      
-        max_y = 0
+        figures.append(fig)
+        figures_titles.append(plot_settings[plot_key]['titles'])      
+        
+        
+        type = analysis_info[plot_key]['plot_type']
 
-        if 'Crack' in analysis_info[plot_key]['plot_type']: # Crack width development plot
+        if 'Crack' in type: # Crack width development plot
             max_y = max([data[plot_key][i][data[plot_key][i].columns[1]].max() for i in range(len(plot_settings[plot_key].get('traces', [])))])
             add_shaded_areas_cw(ax,max_y)
         
-        if 'Damage' in analysis_info[plot_key]['plot_type']: # Damage development plot
+        if 'Damage' in type: # Damage development plot
             max_psi = max([data[plot_key][i]['psi'].max() for i in range(len(data[plot_key]))])
             add_shaded_areas_psi(ax,max_psi)
         
+        if 'Mutual' in type:
+            max_ = 0
+            for i,vals in enumerate(data[plot_key]): 
+                max_ = max(max_, abs(data['Mutual'][i]).max().max())
+                data[plot_key][i] *=  -1
+            vals = np.linspace(0,max_,10)
+            ax.plot(vals,vals, linestyle=':', label = 'Equality')
+
         plot_traces(ax, data, plot_settings, plot_key)
 
     if not analysis_info:  # Individual analysis
@@ -189,7 +207,7 @@ def plot_traces(ax, data, plot_settings, plot_key):
     - plot_key: The specific key in plot_settings to access settings for the current plot.
     """
     for i, trace in enumerate(plot_settings[plot_key].get('traces', [])):
-        x_val = data[plot_key][i]['Step nr.'].values
+        x_val = data[plot_key][i][data[plot_key][i].columns[0]].values
         if x_val.min() >= 1:  # In terms of load factor or not
             x_val = np.arange(1, len(x_val) + 1) / max(x_val)
         y_val = data[plot_key][i][data[plot_key][i].columns[1]].values
@@ -199,7 +217,8 @@ def plot_traces(ax, data, plot_settings, plot_key):
         ax.set_xlabel(plot_settings[plot_key]['labels'][0])
         ax.set_ylabel(plot_settings[plot_key]['labels'][1])
 
-    if plot_settings[plot_key].get('scientific', False):
+    cond = True if abs(y_val).max() > 1e3 else False
+    if plot_settings[plot_key].get('scientific', False) and cond:
         ax.ticklabel_format(style='sci', axis='y', scilimits=(0, 0))
 
     ax.legend(loc='best')

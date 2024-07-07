@@ -35,7 +35,7 @@ def calculate_runtime(filename):
 
     return runtime
 
-def write_to_txt(directory, model_name, data):
+def write_to_txt(directory, data):
     # Save some information in a txt file in the 'analysis' directory
     info_path = os.path.join(directory, 'info.txt')
     
@@ -43,6 +43,7 @@ def write_to_txt(directory, model_name, data):
         os.remove(info_path)  # remove the file if it already exists
     
     with open(info_path, 'w') as file:
+        model_name = data['Model'][0]
         print(f'MODEL ANALYSIS information for model: {model_name.capitalize()}', file=file)
         print('----------------------------------------------------------\n', file=file)
         
@@ -67,17 +68,13 @@ def write_to_txt(directory, model_name, data):
 
 def model_info(file_path,directory):
     runtime = calculate_runtime(file_path)
-        
     subdirectories = directory.split(os.sep)
-    ind = subdirectories.index('Models')
-    mask_subd = subdirectories[ind+1:]
-    model_name = '-'.join(mask_subd)
+    model_name = subdirectories[-1]
 
     data = {
         'Model': [model_name],
         'Run time': [runtime],
     }
-
     return data
 
 # ----------------------------- Model analysis ------------------------------ #
@@ -204,7 +201,7 @@ def parse_lines(lines):
 
 # ----------------------------------- Main ----------------------------------- #
 
-def model_convergence(dir):
+def model_convergence(dir, minfo):
     """
     This function prompts the user to enter the full path of a .OUT file,
     reads the file, parses the lines, and plots the results.
@@ -215,19 +212,26 @@ def model_convergence(dir):
     Returns:
         None
     """
+    directory = os.path.dirname(dir)
+
     lines = read_file(dir)
     iter, ncsteps = parse_lines(lines)
-    figures = plotconvergence(iter, ncsteps)
+    
+    figures = plotconvergence(iter, ncsteps, minfo)
     return figures
 
-def single_model_analysis(file_path):
+def single_out_analysis(file_path,minfo):
     
     directory = os.path.dirname(file_path)
     analysis_dir = os.path.join(directory, 'analysis/convergence')
     os.makedirs(analysis_dir, exist_ok=True)
 
+    # Write model information
+    minfo_ = model_info(file_path,directory)
+    minfo.update(minfo_)
+    #write_to_txt(analysis_dir, minfo)
     # Perform the analysis
-    figures, titles = model_convergence(file_path)    
+    figures, titles = model_convergence(file_path, minfo)    
     for i, fig in enumerate(figures, start=1): # Save the figures
         fig_path = os.path.join(analysis_dir, f'{titles[i-1]}.png')
         if os.path.exists(fig_path):
@@ -235,25 +239,7 @@ def single_model_analysis(file_path):
         fig.savefig(fig_path)
         close()
 
-    # Write model information
-    minfo = model_info(file_path,directory)
-    write_to_txt(analysis_dir, minfo['Model'][0], minfo)
 
-def analyse_models(modelling_directory):
-    failed_files = []
-    for root, _ , files in os.walk(modelling_directory):
-        for file in files:
-            if file.endswith('.out'):
-                file_path = os.path.join(root, file)
-                try:
-                    single_model_analysis(file_path)
-                except Exception as e:
-                    failed_files.append(file_path)
-                    print(f"Error processing file {file_path}: {e}")
-    
-    if failed_files:
-        print("\nThe following files could not be processed:")
-        for failed_file in failed_files:
-            print(failed_file)
+
 
 

@@ -28,6 +28,7 @@ plt.rcParams.update({
     'ytick.minor.size': 0,
     'axes.grid': False,
     'lines.linewidth': 0.7 ,
+    'lines.markersize': 3,  
     'axes.labelcolor': '#333333',  
     'axes.labelweight': 'semibold',
     'xtick.labelcolor': '#333333',  
