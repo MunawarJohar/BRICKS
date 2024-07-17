@@ -8,7 +8,7 @@ from scipy.optimize import curve_fit
 from matplotlib.path import Path
 
 from .assessment.utils import find_root_iterative, gaussian_shape, interpolate_2d 
-from .assessment import compute_sri
+from .assessment.sri import compute_sri
 
 class house:
     def __init__(self, measurements):

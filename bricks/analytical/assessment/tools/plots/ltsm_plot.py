@@ -25,6 +25,7 @@ def LTSM_plot(object):
                 int = object.process['int'][wall]
 
                 strain = wltsm['results'][wall]['e_tot']
+                
                 if assessment == 'greenfield':
                     ltsm_params = wltsm['variables'][wall]
                     ltsm_values = wltsm['values'][wall]
@@ -43,6 +44,7 @@ def LTSM_plot(object):
                                     subplot_titles=('Relative Wall position', 'Subsidence profile'))
 
                 if assessment == 'measurements':
+                    psi = object.assessment['ltsm']['measurements']['report'][wall]['epsilon'][0]['psi']
                     z_measurement = int["z_lin"]
                     x_measurement = int["ax_rel"]
                     fig.add_trace(go.Scatter(x=x_measurement,
@@ -67,6 +69,7 @@ def LTSM_plot(object):
                                     row=2, col=1)
 
                 if assessment == 'greenfield':
+                    psi = object.assessment['ltsm']['greenfield']['report'][wall]['epsilon'][0]['psi']
                     fig.add_trace(go.Scatter(x=x,
                                             y=w,
                                             mode='lines',
@@ -158,9 +161,14 @@ def LTSM_plot(object):
                 
                 ind = np.argmax(assessments)
                 cat = comments[ind]
-                fig.update_layout(title=f'LTSM {wall} | e_tot = {strain:.2e} DL = {cat}',
-                                legend=dict(traceorder="normal"),
-                                template='plotly_white')
+                eg = object.house[wall]['eg_rat']
+                dl = assessments.max()
+
+                fig.update_layout(
+                            title= f'LTSM {wall} | E/G = {eg:.1f}   ε_tot = {strain:.2e}   ψ = {psi:.2f}   DL = {dl:.0f}',
+                            legend=dict(traceorder="normal"),
+                            template='plotly_white'
+                        )
 
                 if assessment == 'measurements':
                     valr2 = x_measurement.max() * 1.5 

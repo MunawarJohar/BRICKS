@@ -3,7 +3,7 @@ import os
 from .analysis.tabulated import single_tb_analysis
 from .analysis.out import single_out_analysis
 
-def analyse_models(modelling_directory, analysis_info=None, plot_settings=None):
+def analyse_models(modelling_directory, analysis_info=None, plot_settings=None, **kwargs):
     """
     Analyzes model files in the specified directory by first processing `.tb` files
     and then `.out` files. The function collects information from the `.tb` files 
@@ -66,7 +66,8 @@ def analyse_models(modelling_directory, analysis_info=None, plot_settings=None):
     # Process .out files
     for file_path in out_files:
         try:
-            single_out_analysis(file_path,minfo)
+            merge = kwargs.get('merge', False)
+            single_out_analysis(file_path,minfo, merge=merge)
         except Exception as e:
             failed_files.append(file_path)
             print(f"Error processing file {file_path}: {e}")

@@ -24,6 +24,7 @@ def plotconvergence(iterations, noconvergencesteps, minfo):
     """
     figures = []
     figures_titles = []
+    axes = []
     ylabels = [
         "Nº of plastic IP's", "Nº of cracks $n_c$",
         "Nº of solver iterations $n_{iter}$", r"Force norm $|\Delta_f|$",
@@ -46,8 +47,9 @@ def plotconvergence(iterations, noconvergencesteps, minfo):
         if not items or not isinstance(items, list):
             continue
 
-        fig, ax = plt.subplots(figsize=(8, 6))
+        fig, ax = plt.subplots(figsize=(5, 3))
         figures.append(fig)
+        axes.append(ax)
         title = titles[item_count]
         figures_titles.append(title)  # Append the corresponding title
 
@@ -76,7 +78,7 @@ def plotconvergence(iterations, noconvergencesteps, minfo):
                     label='Non-converged steps', color = 'red'
                 )
                 ax.legend(loc='best')
-                plt.ylim(0, max(y) * 1.15)
+                plt.ylim(0, max(y) * 1.3)
 
             y_lim = None
             legend_labels = []
@@ -93,9 +95,9 @@ def plotconvergence(iterations, noconvergencesteps, minfo):
                 ax.plot(load_factor, y_lim, "-", label='Out of balance threshold', linewidth=0.5, color = 'red')
                 ax.legend(legend_labels, loc='best')
                 y_max = max(max(y_lim),np.max(y))
-                plt.ylim(0, y_max * 1.15)
+                plt.ylim(0, y_max * 1.3)
             ax.annotate(f"Model: {minfo['Model'][0]}\nSolution time: {minfo['Run time'][0]} [hh:mm:ss]\nNº Elements: {str(minfo['N Elements'][0])}  Nº Nodes: {str(minfo['N Nodes'][0])}",
-                    xy=(0.02, 0.98), xycoords='axes fraction',  
+                    xy=(0.04, 0.96), xycoords='axes fraction',  
                     va='top', ha='left', fontsize=8, color='black',
                     bbox=dict(facecolor='white', edgecolor='none', alpha=0.7),
                     annotation_clip=True  
@@ -104,7 +106,42 @@ def plotconvergence(iterations, noconvergencesteps, minfo):
         ax.set_xlabel(r'Load factor $\lambda$')
         ax.set_ylabel(ylabels[item_count])
         
-    return figures, figures_titles
+    return figures, figures_titles, axes
+
+def merge_plots(figures_titles, axes, indices_to_merge, x_label, y_label, title):
+    """
+    Merge specific plots into one plot.
+
+    Args:
+        figures (list): List of figure objects.
+        figures_titles (list): List of figure titles.
+        axes (list): List of axes objects.
+        indices_to_merge (list): List of indices of the plots to merge.
+        x_label (str): Label for the x-axis.
+        y_label (str): Label for the y-axis.
+        title (str): Title for the merged plot.
+
+    Returns:
+        merged_fig (Figure): The merged figure object.
+    """
+    merged_fig, merged_ax = plt.subplots(figsize=(5, 3))
+    
+    for index in indices_to_merge:
+        original_ax = axes[index]
+        lines = original_ax.get_lines()
+        for line in lines:
+            if 'threshold' in line.get_label():
+                merged_ax.plot(line.get_xdata(), line.get_ydata(), label=f"{figures_titles[index]}: {line.get_label()}",
+                               color = line.get_color(), linestyle = line.get_linestyle())
+            else:
+                merged_ax.plot(line.get_xdata(), line.get_ydata(), label=f"{figures_titles[index]}: {line.get_label()}")
+
+    merged_ax.set_xlabel(x_label)
+    merged_ax.set_ylabel(y_label)
+    merged_ax.set_title(title)
+    merged_ax.legend(loc='best')
+    
+    return merged_fig
 
 def add_shaded_areas_cw(ax, max_y):
     DL = [0, 1, 2, 3, 4, 5]
@@ -141,7 +178,6 @@ def add_shaded_areas_psi(ax, max_psi):
     current_ylim = ax.get_ylim()
     ax.set_ylim(current_ylim[0], max_psi * 1.1)
 
-
 def plotanalysis(data, analysis_info, plot_settings):
     """
     Plot the analysis results based on the provided data.
@@ -166,22 +202,22 @@ def plotanalysis(data, analysis_info, plot_settings):
     figures_titles = []
 
     for plot_key, info in analysis_info.items():
-        fig, ax = plt.subplots(figsize=(8, 6))
+        fig, ax = plt.subplots(figsize=(5, 3))
         figures.append(fig)
-        figures_titles.append(plot_settings[plot_key]['titles'])      
-        
-        
-        type = analysis_info[plot_key]['plot_type']
+        figures_titles.append(plot_settings[plot_key]['titles'])
 
-        if 'Crack' in type: # Crack width development plot
-            max_y = max([data[plot_key][i][data[plot_key][i].columns[1]].max() for i in range(len(plot_settings[plot_key].get('traces', [])))])
-            add_shaded_areas_cw(ax,max_y)
+        if 'Crack' in plot_key:  # Crack width development plot
+            max_y = max([data[plot_key][i][data[plot_key][i].columns[1]].max() 
+                         for i in range(len(plot_settings[plot_key].get('traces', [])))])
+            add_shaded_areas_cw(ax, max_y)
         
-        if 'Damage' in type: # Damage development plot
-            max_psi = max([data[plot_key][i]['psi'].max() for i in range(len(data[plot_key]))])
-            add_shaded_areas_psi(ax,max_psi)
+        if 'Damage' in plot_key:  # Damage development plot
+            max_psi = 0
+            for vals in data[plot_key]:
+                max_psi = max(max_psi, vals['psi'].max())
+            add_shaded_areas_psi(ax, max_psi)
         
-        if 'Mutual' in type:
+        if 'Mutual' in plot_key:
             max_ = 0
             for i,vals in enumerate(data[plot_key]): 
                 max_ = max(max_, abs(data['Mutual'][i]).max().max())

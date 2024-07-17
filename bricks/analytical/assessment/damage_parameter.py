@@ -31,7 +31,9 @@ def compute_damage_parameter(damage: dict = None, object = None) -> dict:
                 print(f"Exception message: {str(e)}")
                 continue
         else:
-            area = damage[wall]['area']
+            for crack in damage:
+                if damage[crack]['wall_id'] == wall:
+                    area = damage[crack]['area']                    
             
         n_c = []
         c_w_n = []

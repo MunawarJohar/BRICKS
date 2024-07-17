@@ -216,7 +216,7 @@ def measurement_strain_measures(gfl_sag_, gfl_hog_, height, length, wall, eg_rat
     
     return epmeas_, best_gfl_sag, best_gfl_hog
 
-def LTSM(object, limit_line, eg_rat=11, methods=['greenfield']):
+def LTSM(object, limit_line, methods):
     """
     Perform LTSM (Long-Term Strain Monitoring) assessment on a given object.
 
@@ -233,7 +233,7 @@ def LTSM(object, limit_line, eg_rat=11, methods=['greenfield']):
     """
     gf_ = {'report': {}, 'results': {}, 'values': {}, 'variables': {}}
     ms_ = {'report': {}, 'results': {}, 'values': {}, 'variables': {}} # Leave for unpacking
-    
+    eg_l = []
     object.assessment['ltsm'] = {}
 
     for wall_ in object.house:
@@ -241,6 +241,7 @@ def LTSM(object, limit_line, eg_rat=11, methods=['greenfield']):
         wall = object.house[wall_]
         length = hwall_length(wall, i)
         height = wall['height']
+        eg_rat = evaluate_eg_rat(wall)
 
         if 'greenfield' in methods:
             params = object.process['params'][wall_]
@@ -251,7 +252,8 @@ def LTSM(object, limit_line, eg_rat=11, methods=['greenfield']):
 
             strain_val = {'epsilon': epmeas_['e_tot']}
             gf_['report'][wall_] = evaluate_wall(strain_val, empirical_limits=epsilon_empirical_limits())
-    
+            gf_['report'][wall_] = update_damage_parameter(gf_['report'][wall_])
+            
             gf_['results'][wall_] = {**epmeas_,
                                      **gfldisp_,
                                      **gflmeas_,
@@ -272,7 +274,8 @@ def LTSM(object, limit_line, eg_rat=11, methods=['greenfield']):
 
             strain_val = {'epsilon': epmeas_['e_tot']}
             ms_['report'][wall_] = evaluate_wall(strain_val, empirical_limits=epsilon_empirical_limits())
-            
+            ms_['report'][wall_] = update_damage_parameter(ms_['report'][wall_])
+
             if best_gfl_sag is None:
                 best_gfl_sag = {'l_s': 0, 'lh_s': 0, 'dl_s': 0, 'dw_s': 0}
             if best_gfl_hog is None:
@@ -281,12 +284,88 @@ def LTSM(object, limit_line, eg_rat=11, methods=['greenfield']):
             ms_['results'][wall_] = {**epmeas_,
                                      **best_gfl_sag,
                                      **best_gfl_hog}
-            
+
+        object.house[wall_]['eg_rat'] = eg_rat
+
     object.assessment['ltsm']['greenfield'] = gf_
     object.assessment['ltsm']['measurements'] = ms_
+    
         
          
+def update_damage_parameter(report):    
+    for assessment in report['epsilon']:
+        psi = calculate_damage_ratio(assessment['value'])
+        assessment['psi'] = psi
+    return report
+
+def calculate_damage_ratio(epsilon_value: float) -> float:
+
+    # Boscardin & Cording (1989) limits
+    limits = [0, 0.5e-3, 0.75e-3, 1.5e-3, 3e-3, 1]
+    DL = [0, 1, 2, 3, 4, 5]
+
+    # Corresponding damage parameter ranges from the table
+    psi_ranges = [
+        (0, 1),    # DL0
+        (1, 1.5),  # DL1
+        (1.5, 2.5),# DL2
+        (2.5, 3.5),# DL3
+        (3.5, 10)  # DL4
+    ]
+
+    for i in range(1, len(limits)):
+        lower_limit = limits[i - 1]
+        upper_limit = limits[i]
+
+        if lower_limit <= epsilon_value < upper_limit:
+            lower_DL = DL[i - 1]
+            upper_DL = DL[i]
+
+            # Use DL4's psi range for DL5
+            if upper_DL == 5:
+                lower_psi = psi_ranges[4][0]
+                upper_psi = psi_ranges[4][1]
+            else:
+                lower_psi = psi_ranges[i - 1][0]
+                upper_psi = psi_ranges[i - 1][1]
+
+            if upper_limit == float('inf'):
+                damage_parameter = upper_psi
+            else:
+                # Calculate the ratio within the DL range
+                ratio = (epsilon_value - lower_limit) / (upper_limit - lower_limit)
+                damage_parameter = lower_psi + ratio * (upper_psi - lower_psi)
+            return damage_parameter
+
+    return psi_ranges[-1][1]
+
+def evaluate_eg_rat(wall):
+    # According to Son & Cording 2001
+    eg_l = [2.6,8,11]
+    ocent = [0,10,30]
     
-    
+    try:
+        area = wall['area']
+        opening = wall['opening']
+
+        opercent = (opening / area)* 100
+        for i,val in enumerate(ocent):
+            if opercent < val:
+                if i == 0:
+                    eg_lower = eg_l[0]
+                    eg_upper = eg_l[1]
+                    ocent_lower = ocent[0]
+                    ocent_upper = ocent[1]
+                else:
+                    eg_lower = eg_l[i-1]
+                    eg_upper = eg_l[i]
+                    ocent_lower = ocent[i-1]
+                    ocent_upper = ocent[i]
+                eg = eg_lower + (eg_upper - eg_lower) * (opercent - ocent_lower) / (ocent_upper - ocent_lower)
+                return eg
+    except:
+        Exception('Opening area not defined, E/G value = 2.6 for wall with no openings')
+        return eg_l[0]
+
             
 

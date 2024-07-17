@@ -192,17 +192,12 @@ def analyse_tabulated(df, analysis_info):
     data = {}
     for analysis in analysis_info:
         vals = []
-        if 'Crack' in analysis:
-            for EOI in analysis_info[analysis]['EOI']:
-                vals.append(find_mean_cw(EOI, df))
-        if 'Displacement' in analysis:
+        
+        if 'Relative' in analysis:
             for node in analysis_info[analysis]['Node Nr']:
                 u = df[df['Node'] == node][['Step nr.', 'TDtY']]
                 vals.append(u)
-        if 'Damage' in analysis:
-            damage = analysis_info[analysis]['parameters']['cracks']
-            c_w = compute_damage_parameter(df, damage)
-            vals.append(c_w)
+        
         if 'Mutual' in analysis:
             sets = analysis_info[analysis]['Node Nr']
             typos = analysis_info[analysis]['Reference']
@@ -214,6 +209,18 @@ def analyse_tabulated(df, analysis_info):
                     merged_df = pd.merge(merged_df, temp_df, on='Step nr.', how='left')
                 merged_df.drop(columns=['Step nr.'], inplace=True)
                 vals.append(merged_df)
+
+        if 'Crack' in analysis:
+            for EOI in analysis_info[analysis]['EOI']:
+                vals.append(find_mean_cw(EOI, df))
+
+        if 'Damage' in analysis:
+            for param in analysis_info[analysis]['parameters']:
+                if param == 'cracks':
+                    for crack_set in analysis_info[analysis]['parameters'][param]: 
+                        c_w = compute_damage_parameter(df, crack_set)
+                        vals.append(c_w)
+        
         data[analysis] = vals
     return data
 

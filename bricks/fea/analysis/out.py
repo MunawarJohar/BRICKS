@@ -6,7 +6,7 @@ from datetime import datetime
 import numpy as np
 from matplotlib.pyplot import close
 
-from ..plots.plots import plotconvergence
+from ..plots.plots import plotconvergence, merge_plots
 
 # ----------------------------- Model information ---------------------------- #
 def calculate_runtime(filename):
@@ -201,26 +201,43 @@ def parse_lines(lines):
 
 # ----------------------------------- Main ----------------------------------- #
 
-def model_convergence(dir, minfo):
+def model_convergence(dir, minfo, merge=None):
     """
-    This function prompts the user to enter the full path of a .OUT file,
-    reads the file, parses the lines, and plots the results.
+    This function reads a .OUT file, parses the lines, and plots the results.
+    Optionally merges specified plots.
 
     Args:
-        None
+        dir (str): Path to the .OUT file.
+        minfo (dict): Dictionary containing model information.
+        merge (dict): Dictionary specifying plots to merge.
 
     Returns:
-        None
+        figures (list): List of figure objects.
     """
     directory = os.path.dirname(dir)
 
     lines = read_file(dir)
     iter, ncsteps = parse_lines(lines)
     
-    figures = plotconvergence(iter, ncsteps, minfo)
-    return figures
+    figures, figures_titles, axes = plotconvergence(iter, ncsteps, minfo)
+    
+    if merge:
+        merge_titles = merge.get('Titles')
+        if merge_titles:
+            indices_to_merge = [i for i, title in enumerate(figures_titles) if title in merge_titles]
+            if indices_to_merge:
+                merged_fig = merge_plots(
+                    figures_titles, axes, indices_to_merge,
+                    merge.get('x_label', "Load factor $\lambda$"), 
+                    merge.get('y_label', "Norm values"), 
+                    merge.get('title', "Merged Plot")
+                )
+                figures.append(merged_fig)
+                figures_titles.append(merge.get('title', "Merged Plot"))
+    
+    return figures, figures_titles
 
-def single_out_analysis(file_path,minfo):
+def single_out_analysis(file_path,minfo, **kwargs):
     
     directory = os.path.dirname(file_path)
     analysis_dir = os.path.join(directory, 'analysis/convergence')
@@ -230,12 +247,16 @@ def single_out_analysis(file_path,minfo):
     minfo_ = model_info(file_path,directory)
     minfo.update(minfo_)
     #write_to_txt(analysis_dir, minfo)
+    
     # Perform the analysis
-    figures, titles = model_convergence(file_path, minfo)    
-    for i, fig in enumerate(figures, start=1): # Save the figures
+    merge = kwargs.get('merge', False)
+    figures, titles = model_convergence(file_path, minfo, merge=merge)    
+    
+    # Save the figures
+    for i, fig in enumerate(figures, start=1): 
         fig_path = os.path.join(analysis_dir, f'{titles[i-1]}.png')
         if os.path.exists(fig_path):
-            os.remove(fig_path)  # remove the file if it already exists
+            os.remove(fig_path)  
         fig.savefig(fig_path)
         close()
 

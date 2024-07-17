@@ -4,7 +4,6 @@ def process(coords, abs_disp, max_rate, rate_multiple):
 
     rel_iter = find_iter(rel_disp, max_rate, rate_multiple)
     abs_iter = find_iter(abs_disp, max_rate, rate_multiple)
-    print(rel_iter, abs_iter)
     dydt_abs = abs_disp//abs_iter
     dydt_rel = rel_disp//rel_iter
 
