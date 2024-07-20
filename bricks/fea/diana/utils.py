@@ -40,6 +40,12 @@ def find_mean_cw(elements_of_interest,df):
     final_avg = grouped.groupby('Step nr.')['Ecw1'].mean().reset_index()
     return final_avg
 
+def find_max_cw(elements_of_interest,df):
+    filtered_df = df[df['Element'].isin(elements_of_interest)]
+    grouped = filtered_df.groupby(['Step nr.', 'Element'])['Ecw1'].max().reset_index()
+    final_avg = grouped.groupby('Step nr.')['Ecw1'].max().reset_index()
+    return final_avg
+
 def find_nel(df,elements):
     filtered_df = df[df['Element'].isin(elements)]
     n_steps = len(df['Step nr.'].unique()) # Find Nsteps

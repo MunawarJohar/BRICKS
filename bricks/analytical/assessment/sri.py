@@ -260,8 +260,8 @@ def compute_sri(house, wall_num, key, tolerance = 0.05):
     ## Returns:
     A dictionary containing the following SRI parameters:
     - 'Smax': The maximum absolute displacement of the wall.
-    - 'dSmax': The difference between the minimum and maximum absolute displacements of the wall.
-    - 'D/L': The ratio of dSmax to the length of the wall.
+    - 'ΔSmax': The difference between the minimum and maximum absolute displacements of the wall.
+    - 'D/L': The ratio of ΔSmax to the length of the wall.
     - 'drat': The maximum relative displacement of the wall.
     - 'omega': The calculated omega parameter.
     - 'phi': The calculated phi parameter.
@@ -284,7 +284,7 @@ def compute_sri(house, wall_num, key, tolerance = 0.05):
     beta = calculate_beta(wallz,x, infl_dict_)
 
     sri =  {'Smax': abs(min(wall['z'])),
-            'dSmax': abs(s_vmax),
+            'ΔSmax': abs(s_vmax),
             'DefRat': abs(s_vmax)/length,
             'dDef': abs(d_deflection),
             'omega': abs(omega),

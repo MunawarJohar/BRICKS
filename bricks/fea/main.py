@@ -1,7 +1,7 @@
 import os
 
-from .analysis.tabulated import single_tb_analysis
-from .analysis.out import single_out_analysis
+from .diana.tabulated import single_tb_analysis
+from .diana.out import single_out_analysis
 
 def analyse_models(modelling_directory, analysis_info=None, plot_settings=None, **kwargs):
     """

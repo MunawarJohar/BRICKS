@@ -4,7 +4,7 @@ import numpy as np
 import pandas as pd
 from matplotlib.pyplot import close
 
-from .utils import compute_damage_parameter, find_mean_cw
+from .utils import compute_damage_parameter, find_mean_cw, find_max_cw
 from ..plots.plots import plotanalysis
 
 def process_data_row(data_string):
@@ -212,7 +212,7 @@ def analyse_tabulated(df, analysis_info):
 
         if 'Crack' in analysis:
             for EOI in analysis_info[analysis]['EOI']:
-                vals.append(find_mean_cw(EOI, df))
+                vals.append(find_max_cw(EOI, df))
 
         if 'Damage' in analysis:
             for param in analysis_info[analysis]['parameters']:

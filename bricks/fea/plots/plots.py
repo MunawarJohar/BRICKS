@@ -1,6 +1,8 @@
 import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.ticker import ScalarFormatter
+from matplotlib.offsetbox import OffsetImage, AnnotationBbox
+from PIL import Image
 
 from .style import *
 
@@ -224,6 +226,8 @@ def plotanalysis(data, analysis_info, plot_settings):
                 data[plot_key][i] *=  -1
             vals = np.linspace(0,max_,10)
             ax.plot(vals,vals, linestyle=':', label = 'Equality')
+            path = r'C:\Users\javie\OneDrive - Delft University of Technology\Year 2\Q3 & Q4\CIEM0500 - MS Thesis Project\!content\Experimentation\Figures\Deform\deform.png'
+            add_image_below_legend(ax, path)
 
         plot_traces(ax, data, plot_settings, plot_key)
 
@@ -311,3 +315,30 @@ def individual_plot(data, plot_settings):
             ax.legend(loc='best')
 
     return fig, ax, title
+
+def add_image_below_legend(ax, image_path, zoom=0.12):
+    # Read the image using Pillow
+    image = Image.open(image_path)
+    image.thumbnail((100, 100), Image.ANTIALIAS)
+    image_array = np.asarray(image)
+    
+    # Create an OffsetImage object
+    im = OffsetImage(image_array, zoom=zoom)
+    
+    # Calculate the position below the legend
+    box = ax.get_position()
+    x0, y0, width, height = box.x0, box.y0, box.width, box.height
+    legend = ax.get_legend()
+    if legend:
+        # Get the bounding box of the legend
+        legend_bbox = legend.get_window_extent()
+        # Convert the bounding box to axes coordinates
+        legend_bbox = legend.get_transform().inverted().transform(legend_bbox)
+        # Calculate the position below the legend
+        image_x = (legend_bbox[0][0] + legend_bbox[1][0]) / 2
+        image_y = legend_bbox[0][1] - 0.05  # Adjust this value as needed
+        
+        # Add the AnnotationBbox to the plot
+        ab = AnnotationBbox(im, (image_x, image_y), xycoords='axes fraction', frameon=False)
+        ax.add_artist(ab)
+

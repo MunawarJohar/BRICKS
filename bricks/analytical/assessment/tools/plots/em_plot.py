@@ -18,6 +18,9 @@ def apply_opacity_to_colorscale(colorscale_name, opacity):
         rgba_colors.append([i / (cmap.N - 1), f'rgba({int(r * 255)}, {int(g * 255)}, {int(b * 255)}, {opacity})'])
     return rgba_colors
 
+def split_labels_into_words(labels, max_words_per_line):
+    return ['<br>'.join([' '.join(label.split()[i:i+max_words_per_line]) for i in range(0, len(label.split()), max_words_per_line)]) for label in labels]
+
 def EM_plot(report):
     """
     Generate an annotated heatmap plot for empirical assessment.
@@ -33,11 +36,15 @@ def EM_plot(report):
     
     figs = []  
     cscale = apply_opacity_to_colorscale('RdYlGn_r', 0.75)
+    max_words_per_line = 2  
+
     for wall in walls:
         data_matrix, wall_param_labels, sources, description_annotations = prepare_report(report, wall)
+        formatted_sources = split_labels_into_words(sources, max_words_per_line)
+    
         heatmap = go.Heatmap(
             z=data_matrix,
-            x=sources,
+            x=formatted_sources,
             y=wall_param_labels,
             colorscale=cscale,
             zmin=0,
@@ -55,18 +62,14 @@ def EM_plot(report):
             customdata=np.array(description_annotations)
         )
 
-        # assessments = data_matrix.flatten()
-        # comments = description_annotations[0]
-        # ind = np.argmax(assessments)
-        # cat = comments[ind]
-
         layout = go.Layout(
-            #title=f'EM assessment {wall.capitalize()} | DL = {cat}',
             xaxis=dict(
                 title='Literature Source',
                 side='bottom',
                 showgrid=True,
-                gridcolor='lightgray'
+                gridcolor='lightgray',
+                tickangle=0,  # Keep labels horizontal
+                tickmode='auto'
             ),
             yaxis=dict(
                 title='SRI Parameter',
@@ -75,7 +78,7 @@ def EM_plot(report):
                 autorange='reversed'
             ),
             template='plotly_white',
-            margin=dict(l=100, r=20, t=40, b=100)
+            margin=dict(l=100, r=20, t=40, b=150)  # Adjust bottom margin to fit multi-line labels
         )
 
         fig = go.Figure(data=heatmap, layout=layout)

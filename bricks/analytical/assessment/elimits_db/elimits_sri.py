@@ -11,7 +11,7 @@ class LimitEntry:
 @dataclass
 class ParameterLimits:
     beta: List[LimitEntry] = field(default_factory=list)
-    dSmax: List[LimitEntry] = field(default_factory=list)
+    ΔSmax: List[LimitEntry] = field(default_factory=list)
     phi: List[LimitEntry] = field(default_factory=list)
     omega: List[LimitEntry] = field(default_factory=list)
 
@@ -22,57 +22,57 @@ def empirical_limits() -> ParameterLimits:
                 source='Boscardin & Cording (1989)',
                 limits=[0, 1e-3, 1.5e-3, 3.25e-3, 6.5e-3, float('inf')],
                 description=['No damage', 'Negligible damage', 'Slight', 'Moderate to severe', 'Severe to very severe'],
-                DL=[0, 1, 3, 4, 5]
+                DL=[0, 1, 2, 3, 4]
             ),
             LimitEntry(
                 source='Skempton & McDonald (1956)',
                 limits=[0, 3.33e-3, 6.66e-3, float('inf')],
                 description=['No damage', 'Structural damage in beams or columns', 'Cracking in wall panels'],
-                DL=[0, 2, 4]
+                DL=[0, 3, 4]
             ),
             LimitEntry(
                 source='Bjerrum (1963)',
                 limits=[0, 2e-3, 3.33e-3, 6.66e-3, float('inf')],
                 description=['No damage', 'Cracking', 'Severe cracking in panel walls', 'Serious cracking in panel walls and brick walls'],
-                DL=[0, 2, 4, 5]
+                DL=[0, 1, 3, 4]
             ),
             LimitEntry(
                 source='Polshin & Tokar (1957)',
                 limits=[0, 5e-3, float('inf')],
                 description=['No damage', 'First visible cracking to no infill walls'],
-                DL=[0, 3]
+                DL=[0, 1]
             ),
             LimitEntry(
                 source='Wood (1958)',
                 limits=[0, 2.2e-3, float('inf')],
                 description=['No damage', 'First visible cracking to brick panels and walls'],
-                DL=[0, 3]
+                DL=[0, 1]
             ),
             LimitEntry(
                 source='Bozuzuk (1962)',
                 limits=[0, 1e-3, float('inf')],
                 description=['No damage', 'Cracking of clay brick units with mortar'],
-                DL=[0, 3]
+                DL=[0, 1]
             ),
             LimitEntry(
                 source='Meyerhof (1953)',
                 limits=[0, 2.5e-3, float('inf')],
                 description=['No damage', 'Cracking'],
-                DL=[0, 3]
+                DL=[0, 1]
             ),
         ],
-        dSmax=[
+        ΔSmax=[
             LimitEntry(
                 source="Skempton & McDonald (1956)",
                 limits=[0, 0.032, float('inf')],
                 description=['No damage', 'Damage in sand (all types of foundation)'],
-                DL=[0, 2]
+                DL=[0, 1]
             ),
             LimitEntry(
                 source="Skempton & McDonald (1956)",
                 limits=[0, 0.045, float('inf')],
                 description=['No damage', 'Damage in clay (all types of foundation)'],
-                DL=[0, 2]
+                DL=[0, 1]
             ),
         ],
         phi=[
