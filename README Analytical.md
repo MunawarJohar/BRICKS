@@ -7,7 +7,7 @@ In the Netherlands, it has been customary for engineering consultants to perform
 > <span style="font-size: larger;">Project Objective:</span> To develop and asses available methods in the evaluation of structural damage to masonry structures undergoing urban shallow subsidence<br>
 > The development and analysis of analytical and numerical solutions, to preemptively determine the vulnerability of structures.
 
- <img src="_data\fig\buildingdamage.svg" alt="Masonry structure accommodating to a subsidence surface" style="object-fit: cover">|<img src="_data\fig\assessment_report\skew_measurements.png"> |
+ <img src=".github\public_html\fig\buildingdamage.svg" alt="Masonry structure accommodating to a subsidence surface" style="object-fit: cover">|<img src=".github\public_html\fig\assessment_report\skew_measurements.png"> |
 |-------------------------------------------------------------------------------------------------------------------------|-----------------------------------------------------------------------------------------------------------------------------------------|
 |**Figure 1:** Masonry structure accommodating to a subsidence surface |**Figure 2:** Exemplary skew measurement diagram |
 
