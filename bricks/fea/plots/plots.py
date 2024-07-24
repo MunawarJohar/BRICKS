@@ -1,10 +1,8 @@
 import numpy as np
 import matplotlib.pyplot as plt
-from matplotlib.ticker import ScalarFormatter
-from matplotlib.offsetbox import OffsetImage, AnnotationBbox
-from PIL import Image
 
 from .style import *
+from .utils import *
 
 def plotconvergence(iterations, noconvergencesteps, minfo):
     """
@@ -110,77 +108,7 @@ def plotconvergence(iterations, noconvergencesteps, minfo):
         
     return figures, figures_titles, axes
 
-def merge_plots(figures_titles, axes, indices_to_merge, x_label, y_label, title):
-    """
-    Merge specific plots into one plot.
-
-    Args:
-        figures (list): List of figure objects.
-        figures_titles (list): List of figure titles.
-        axes (list): List of axes objects.
-        indices_to_merge (list): List of indices of the plots to merge.
-        x_label (str): Label for the x-axis.
-        y_label (str): Label for the y-axis.
-        title (str): Title for the merged plot.
-
-    Returns:
-        merged_fig (Figure): The merged figure object.
-    """
-    merged_fig, merged_ax = plt.subplots(figsize=(5, 3))
-    
-    for index in indices_to_merge:
-        original_ax = axes[index]
-        lines = original_ax.get_lines()
-        for line in lines:
-            if 'threshold' in line.get_label():
-                merged_ax.plot(line.get_xdata(), line.get_ydata(), label=f"{figures_titles[index]}: {line.get_label()}",
-                               color = line.get_color(), linestyle = line.get_linestyle())
-            else:
-                merged_ax.plot(line.get_xdata(), line.get_ydata(), label=f"{figures_titles[index]}: {line.get_label()}")
-
-    merged_ax.set_xlabel(x_label)
-    merged_ax.set_ylabel(y_label)
-    merged_ax.set_title(title)
-    merged_ax.legend(loc='best')
-    
-    return merged_fig
-
-def add_shaded_areas_cw(ax, max_y):
-    DL = [0, 1, 2, 3, 4, 5]
-    Name = ['Negligible', 'Very slight', 'Slight', 'Moderate', 'Severe', 'Very severe']
-    CW = [0, 1, 5, 15, 25, max(25, max_y)]
-    
-    for i in range(len(CW) - 1):
-        if CW[i] < max_y:
-            upper_limit = min(CW[i + 1], max_y*1.1)
-            alpha_value = 0.03 + 0.04 * i 
-            ax.axhspan(CW[i], upper_limit, facecolor='gray', alpha=alpha_value)
-            ax.text(ax.get_xlim()[1], (CW[i] + upper_limit) / 2, f'DL{DL[i]} {Name[i]}',
-                    va='center', ha='right', fontsize=8, color='black',
-                    bbox=dict(facecolor='white', edgecolor='none', alpha=0.7))
-    
-    # Set y-axis upper limit to ensure all annotations are visible
-    current_ylim = ax.get_ylim()
-    ax.set_ylim(current_ylim[0], max_y * 1.1)
-            
-def add_shaded_areas_psi(ax, max_psi):
-    psilim = [0, 1, 1.5, 2.5, 3.5, float('inf')]
-    DL = [0, 1, 2, 3, 4, 5]
-    Name = ['Negligible', 'Very slight', 'Slight', 'Moderate', 'Severe', 'Very severe']
-    
-    for i in range(len(psilim) - 1):
-        if psilim[i] < max_psi:
-            upper_limit = min(psilim[i + 1], max_psi*1.1)
-            alpha_value = 0.03 + 0.04 * i 
-            ax.axhspan(psilim[i], upper_limit, facecolor='gray', alpha=alpha_value)
-            ax.text(ax.get_xlim()[1], (psilim[i] + upper_limit) / 2, f'DL{DL[i]} {Name[i]}',
-                    va='center', ha='right', fontsize=8, color='black',
-                    bbox=dict(facecolor='white', edgecolor='none', alpha=0.7))
-    
-    current_ylim = ax.get_ylim()
-    ax.set_ylim(current_ylim[0], max_psi * 1.1)
-
-def plotanalysis(data, analysis_info, plot_settings):
+def plot_analysis(data, analysis_info, plot_settings):
     """
     Plot the analysis results based on the provided data.
 
@@ -210,31 +138,93 @@ def plotanalysis(data, analysis_info, plot_settings):
 
         if 'Crack' in plot_key:  # Crack width development plot
             max_y = max([data[plot_key][i][data[plot_key][i].columns[1]].max() 
-                         for i in range(len(plot_settings[plot_key].get('traces', [])))])
+                            for i in range(len(plot_settings[plot_key].get('traces', [])))])
             add_shaded_areas_cw(ax, max_y)
-        
+
         if 'Damage' in plot_key:  # Damage development plot
             max_psi = 0
             for vals in data[plot_key]:
                 max_psi = max(max_psi, vals['psi'].max())
             add_shaded_areas_psi(ax, max_psi)
-        
+
         if 'Mutual' in plot_key:
             max_ = 0
             for i,vals in enumerate(data[plot_key]): 
                 max_ = max(max_, abs(data['Mutual'][i]).max().max())
                 data[plot_key][i] *=  -1
-            vals = np.linspace(0,max_,10)
+            
+            vals = np.linspace(0,max_,10) #Plot equality
             ax.plot(vals,vals, linestyle=':', label = 'Equality')
+            
             path = r'C:\Users\javie\OneDrive - Delft University of Technology\Year 2\Q3 & Q4\CIEM0500 - MS Thesis Project\!content\Experimentation\Figures\Deform\deform.png'
-            add_image_below_legend(ax, path)
+            add_image_to_plot(ax, path, zoom = 0.15)
 
         plot_traces(ax, data, plot_settings, plot_key)
 
-    if not analysis_info:  # Individual analysis
+    if not analysis_info:  #Individual analysis
         fig, ax, _ = individual_plot(data, plot_settings)
-        
+
     return figures, figures_titles
+
+def plot_combined(plot_data_list, plot_key):
+    """
+    Plot combined data based on the given plot data list and plot key.
+
+    Args:
+        plot_data_list (list): A list of dictionaries containing the plot data and settings.
+        plot_key (str): The key indicating the type of plot to be generated.
+
+    Returns:
+        matplotlib.figure.Figure: The generated figure.
+
+    Raises:
+        None
+
+    """
+
+    fig, ax = plt.subplots(figsize=(5, 3))
+    max_psi = 0
+    max_y = 0
+    max_ = 0
+
+    for plot_data in plot_data_list:
+        data = plot_data['data_analysis']
+        plot_settings = plot_data['plot_settings']
+        
+        if plot_key in data:
+            plot_traces(ax, data, plot_settings, plot_key)
+            
+            if 'Damage' in plot_key:
+                for vals in data[plot_key]:
+                    max_psi = max(max_psi, vals['psi'].max())
+            
+            if 'Crack' in plot_key:
+                for vals in data[plot_key]:
+                    max_y = max(max_y, vals[vals.columns[1]].max())
+            
+            if 'Mutual' in plot_key:
+                for i, vals in enumerate(data[plot_key]): 
+                    max_ = max(max_, abs(vals).max().max())
+                    data[plot_key][i] *= -1
+                
+    if 'Mutual' in plot_key:
+        vals = np.linspace(0, max_, 10)  # Plot equality
+        ax.plot(vals, vals, linestyle=':', label='Equality')
+
+        path = r'C:\Users\javie\OneDrive - Delft University of Technology\Year 2\Q3 & Q4\CIEM0500 - MS Thesis Project\!content\Experimentation\Figures\Deform\deform.png'
+        add_image_to_plot(ax, path)                    
+
+    if 'Damage' in plot_key:
+        add_shaded_areas_psi(ax, max_psi)
+    
+    if 'Crack' in plot_key:
+        add_shaded_areas_cw(ax, max_y)
+
+    ax.set_xlabel(plot_data_list[0]['plot_settings'][plot_key]['labels'][0])
+    ax.set_ylabel(plot_data_list[0]['plot_settings'][plot_key]['labels'][1])
+    #ax.set_title(f'Comparison of {plot_key}')
+    ax.legend()
+    return fig
 
 def plot_traces(ax, data, plot_settings, plot_key):
     """
@@ -251,7 +241,7 @@ def plot_traces(ax, data, plot_settings, plot_key):
         if x_val.min() >= 1:  # In terms of load factor or not
             x_val = np.arange(1, len(x_val) + 1) / max(x_val)
         y_val = data[plot_key][i][data[plot_key][i].columns[1]].values
-        ax.plot(x_val, y_val, label=trace, marker=None)
+        ax.plot(x_val, y_val, label= trace, marker=None)
 
     if 'labels' in plot_settings[plot_key]:
         ax.set_xlabel(plot_settings[plot_key]['labels'][0])
@@ -262,83 +252,4 @@ def plot_traces(ax, data, plot_settings, plot_key):
         ax.ticklabel_format(style='sci', axis='y', scilimits=(0, 0))
 
     ax.legend(loc='best')
-
-def individual_plot(data, plot_settings):
-    """
-    Plot the given data with the specified plot settings.
-
-    Parameters:
-    - data: numpy array, where each column represents a variable and each row represents a data point.
-    - plot_settings: dict, contains settings for the plot including labels, title, scientific notation, and traces.
-
-    Returns:
-    - fig: The matplotlib figure object.
-    - ax: The matplotlib axes object.
-    - title: The title of the plot, if specified.
-    """
-    fig, ax = plt.subplots(figsize=(6, 4))
-    
-    x_val = data[:, 0]
-    if x_val.min() >= 1:  # In terms of load factor or not
-        load_factor = np.arange(1, len(x_val) + 1) / max(x_val)
-    else:
-        load_factor = data[:, 0]
-
-    if plot_settings:
-        if 'labels' in plot_settings:
-            x_label, y_label = plot_settings['labels']
-            ax.set_xlabel(x_label)
-            ax.set_ylabel(y_label)
-
-        if 'scientific' in plot_settings and plot_settings['scientific']:
-            ax.yaxis.set_major_formatter(ScalarFormatter(useMathText=True))
-            ax.ticklabel_format(style='sci', axis='y', scilimits=(0, 0))  # Use scientific notation
-
-        if 'titles' in plot_settings:
-            title = plot_settings['titles']
-            ax.set_title(title)
-        else:
-            title = None
-
-        for i in range(1, data.shape[1]):
-            values = data[:, i]
-            trace = None
-            if 'traces' in plot_settings:
-                if isinstance(plot_settings['traces'], list):
-                    trace = plot_settings['traces'][i - 1] if i - 1 < len(plot_settings['traces']) else None
-                else:
-                    trace = plot_settings['traces']
-
-            ax.plot(load_factor, values, '-', label=trace, linewidth=0.5, marker=None)
-
-        if 'traces' in plot_settings:
-            ax.legend(loc='best')
-
-    return fig, ax, title
-
-def add_image_below_legend(ax, image_path, zoom=0.12):
-    # Read the image using Pillow
-    image = Image.open(image_path)
-    image.thumbnail((100, 100), Image.ANTIALIAS)
-    image_array = np.asarray(image)
-    
-    # Create an OffsetImage object
-    im = OffsetImage(image_array, zoom=zoom)
-    
-    # Calculate the position below the legend
-    box = ax.get_position()
-    x0, y0, width, height = box.x0, box.y0, box.width, box.height
-    legend = ax.get_legend()
-    if legend:
-        # Get the bounding box of the legend
-        legend_bbox = legend.get_window_extent()
-        # Convert the bounding box to axes coordinates
-        legend_bbox = legend.get_transform().inverted().transform(legend_bbox)
-        # Calculate the position below the legend
-        image_x = (legend_bbox[0][0] + legend_bbox[1][0]) / 2
-        image_y = legend_bbox[0][1] - 0.05  # Adjust this value as needed
-        
-        # Add the AnnotationBbox to the plot
-        ab = AnnotationBbox(im, (image_x, image_y), xycoords='axes fraction', frameon=False)
-        ax.add_artist(ab)
-
+ 

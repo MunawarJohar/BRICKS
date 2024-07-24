@@ -5,7 +5,7 @@ import pandas as pd
 from matplotlib.pyplot import close
 
 from .utils import compute_damage_parameter, find_mean_cw, find_max_cw
-from ..plots.plots import plotanalysis
+from ..plots.plots import plot_analysis
 
 def process_data_row(data_string):
     """
@@ -45,7 +45,7 @@ def read_file(filepath):
         lines = file.readlines()
     return lines
 
-def process_tabulated(file_path):
+def process_tb(file_path):
     """
     Process a tabulated file and return a pandas DataFrame.
 
@@ -225,14 +225,28 @@ def analyse_tabulated(df, analysis_info):
     return data
 
 def single_tb_analysis(file_path, analysis_info, plot_settings):
+    """
+    Perform tabulated analysis on a single file.
+
+    Args:
+        file_path (str): The path to the tabulated file.
+        analysis_info (dict): Information about the analysis.
+        plot_settings (dict): Settings for plotting the analysis.
+
+    Returns:
+        tuple: A tuple containing two elements:
+            - minfo (dict): Information about the analysis results, including the number of elements and nodes.
+            - data (dict): The analyzed data.
+
+    """
     directory = os.path.dirname(file_path)
     analysis_dir = os.path.join(directory, 'analysis/results')
     os.makedirs(analysis_dir, exist_ok=True)
 
     # Perform the analysis
-    df = process_tabulated(file_path)
+    df = process_tb(file_path)
     data = analyse_tabulated(df, analysis_info)
-    figures, titles = plotanalysis(data, analysis_info, plot_settings)
+    figures, titles = plot_analysis(data, analysis_info, plot_settings)
 
     for i, fig in enumerate(figures, start=1): # Save the figures
         fig_path = os.path.join(analysis_dir, f'{titles[i-1]}.png')
@@ -244,6 +258,6 @@ def single_tb_analysis(file_path, analysis_info, plot_settings):
     minfo = {
         'N Elements': [len(df['Element'].unique())],
         'N Nodes':  [len(df['Node'].unique())]
-        }
-    return minfo
+    }
+    return minfo, data
 

@@ -8,7 +8,6 @@ from matplotlib.pyplot import close
 
 from ..plots.plots import plotconvergence, merge_plots
 
-# ----------------------------- Model information ---------------------------- #
 def calculate_runtime(filename):
         
     start_time = end_time = None
@@ -199,8 +198,6 @@ def parse_lines(lines):
 
     return Iterations, NoConvergenceSteps
 
-# ----------------------------------- Main ----------------------------------- #
-
 def model_convergence(dir, minfo, merge=None):
     """
     This function reads a .OUT file, parses the lines, and plots the results.
@@ -246,7 +243,6 @@ def single_out_analysis(file_path,minfo, **kwargs):
     # Write model information
     minfo_ = model_info(file_path,directory)
     minfo.update(minfo_)
-    #write_to_txt(analysis_dir, minfo)
     
     # Perform the analysis
     merge = kwargs.get('merge', False)
