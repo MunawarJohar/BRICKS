@@ -76,7 +76,6 @@ def model_info(file_path,directory):
     }
     return data
 
-# ----------------------------- Model analysis ------------------------------ #
 def read_file(filepath):
     with open(filepath, "r") as fileOUT:
         lines = fileOUT.readlines()
@@ -234,27 +233,7 @@ def model_convergence(dir, minfo, merge=None):
     
     return figures, figures_titles
 
-def single_out_analysis(file_path,minfo, **kwargs):
-    
-    directory = os.path.dirname(file_path)
-    analysis_dir = os.path.join(directory, 'analysis/convergence')
-    os.makedirs(analysis_dir, exist_ok=True)
 
-    # Write model information
-    minfo_ = model_info(file_path,directory)
-    minfo.update(minfo_)
-    
-    # Perform the analysis
-    merge = kwargs.get('merge', False)
-    figures, titles = model_convergence(file_path, minfo, merge=merge)    
-    
-    # Save the figures
-    for i, fig in enumerate(figures, start=1): 
-        fig_path = os.path.join(analysis_dir, f'{titles[i-1]}.png')
-        if os.path.exists(fig_path):
-            os.remove(fig_path)  
-        fig.savefig(fig_path)
-        close()
 
 
 

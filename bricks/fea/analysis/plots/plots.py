@@ -156,7 +156,7 @@ def plot_analysis(data, analysis_info, plot_settings):
             vals = np.linspace(0,max_,10) #Plot equality
             ax.plot(vals,vals, linestyle=':', label = 'Equality')
             
-            path = r'C:\Users\javie\OneDrive - Delft University of Technology\Year 2\Q3 & Q4\CIEM0500 - MS Thesis Project\!content\Experimentation\Figures\Deform\deform.png'
+            path = r'C:\Users\javie\OneDrive - Delft University of Technology\Year 2\Q3 & Q4\CIEM0500 - MS Thesis Project\!content\Experimentation\!Ijsselsteinseweg\bricks\fea\analysis\plots\deform.png'
             add_image_to_plot(ax, path, zoom = 0.15)
 
         plot_traces(ax, data, plot_settings, plot_key)
@@ -182,7 +182,7 @@ def plot_combined(plot_data_list, plot_key):
 
     """
 
-    fig, ax = plt.subplots(figsize=(5, 3))
+    fig, ax = plt.subplots(figsize=(5, 2.5))
     max_psi = 0
     max_y = 0
     max_ = 0
@@ -211,8 +211,8 @@ def plot_combined(plot_data_list, plot_key):
         vals = np.linspace(0, max_, 10)  # Plot equality
         ax.plot(vals, vals, linestyle=':', label='Equality')
 
-        path = r'C:\Users\javie\OneDrive - Delft University of Technology\Year 2\Q3 & Q4\CIEM0500 - MS Thesis Project\!content\Experimentation\Figures\Deform\deform.png'
-        add_image_to_plot(ax, path)                    
+        path = r'C:\Users\javie\OneDrive - Delft University of Technology\Year 2\Q3 & Q4\CIEM0500 - MS Thesis Project\!content\Experimentation\!Ijsselsteinseweg\bricks\fea\analysis\plots\deform.png'
+        add_image_to_plot(ax, path)                   
 
     if 'Damage' in plot_key:
         add_shaded_areas_psi(ax, max_psi)
@@ -253,3 +253,37 @@ def plot_traces(ax, data, plot_settings, plot_key):
 
     ax.legend(loc='best')
  
+def merge_plots(figures_titles, axes, indices_to_merge, x_label, y_label, title):
+    """
+    Merge specific plots into one plot.
+
+    Args:
+        figures (list): List of figure objects.
+        figures_titles (list): List of figure titles.
+        axes (list): List of axes objects.
+        indices_to_merge (list): List of indices of the plots to merge.
+        x_label (str): Label for the x-axis.
+        y_label (str): Label for the y-axis.
+        title (str): Title for the merged plot.
+
+    Returns:
+        merged_fig (Figure): The merged figure object.
+    """
+    merged_fig, merged_ax = plt.subplots(figsize=(5, 3))
+    
+    for index in indices_to_merge:
+        original_ax = axes[index]
+        lines = original_ax.get_lines()
+        for line in lines:
+            if 'threshold' in line.get_label():
+                merged_ax.plot(line.get_xdata(), line.get_ydata(), label=f"{figures_titles[index]}: {line.get_label()}",
+                               color = line.get_color(), linestyle = line.get_linestyle())
+            else:
+                merged_ax.plot(line.get_xdata(), line.get_ydata(), label=f"{figures_titles[index]}: {line.get_label()}")
+
+    merged_ax.set_xlabel(x_label)
+    merged_ax.set_ylabel(y_label)
+    merged_ax.set_title(title)
+    merged_ax.legend(loc='best')
+    
+    return merged_fig

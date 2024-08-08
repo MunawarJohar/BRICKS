@@ -4,40 +4,6 @@ from matplotlib.ticker import ScalarFormatter
 from matplotlib.offsetbox import OffsetImage, AnnotationBbox
 from PIL import Image
 
-def merge_plots(figures_titles, axes, indices_to_merge, x_label, y_label, title):
-    """
-    Merge specific plots into one plot.
-
-    Args:
-        figures (list): List of figure objects.
-        figures_titles (list): List of figure titles.
-        axes (list): List of axes objects.
-        indices_to_merge (list): List of indices of the plots to merge.
-        x_label (str): Label for the x-axis.
-        y_label (str): Label for the y-axis.
-        title (str): Title for the merged plot.
-
-    Returns:
-        merged_fig (Figure): The merged figure object.
-    """
-    merged_fig, merged_ax = plt.subplots(figsize=(5, 3))
-    
-    for index in indices_to_merge:
-        original_ax = axes[index]
-        lines = original_ax.get_lines()
-        for line in lines:
-            if 'threshold' in line.get_label():
-                merged_ax.plot(line.get_xdata(), line.get_ydata(), label=f"{figures_titles[index]}: {line.get_label()}",
-                               color = line.get_color(), linestyle = line.get_linestyle())
-            else:
-                merged_ax.plot(line.get_xdata(), line.get_ydata(), label=f"{figures_titles[index]}: {line.get_label()}")
-
-    merged_ax.set_xlabel(x_label)
-    merged_ax.set_ylabel(y_label)
-    merged_ax.set_title(title)
-    merged_ax.legend(loc='best')
-    
-    return merged_fig
 
 def add_shaded_areas_cw(ax, max_y):
     """
@@ -59,7 +25,7 @@ def add_shaded_areas_cw(ax, max_y):
             upper_limit = min(CW[i + 1], max_y*1.1)
             alpha_value = 0.03 + 0.04 * i 
             ax.axhspan(CW[i], upper_limit, facecolor='gray', alpha=alpha_value)
-            ax.text(ax.get_xlim()[1] - 0.1, (CW[i] + upper_limit) / 2, f'DL{DL[i]} {Name[i]}',
+            ax.text(ax.get_xlim()[1] -0.05, (CW[i] + upper_limit) / 2, f'DL{DL[i]} {Name[i]}',
                     va='center', ha='right', fontsize=8, color='black',
                     bbox=dict(facecolor='white', edgecolor='none', alpha=0.7))
     
@@ -88,7 +54,7 @@ def add_shaded_areas_psi(ax, max_psi):
             upper_limit = min(psilim[i + 1], max_psi*1.1)
             alpha_value = 0.03 + 0.04 * i 
             ax.axhspan(psilim[i], upper_limit, facecolor='gray', alpha=alpha_value)
-            ax.text(ax.get_xlim()[1]- 0.1, (psilim[i] + upper_limit) / 2, f'DL{DL[i]} {Name[i]}',
+            ax.text(ax.get_xlim()[1] - 0.05, (psilim[i] + upper_limit) / 2, f'DL{DL[i]} {Name[i]}',
                     va='center', ha='right', fontsize=8, color='black',
                     bbox=dict(facecolor='white', edgecolor='none', alpha=0.7))
     
@@ -116,7 +82,6 @@ def add_image_to_plot(ax, image_path, zoom=0.12):
     ax.add_artist(ab)
 
 
-# --------------------------------- Redundant -------------------------------- #
 
 def individual_plot(data, plot_settings):
     """

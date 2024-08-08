@@ -1,11 +1,18 @@
-import os
 import traceback
 import numpy as np
 import pandas as pd
-from matplotlib.pyplot import close
 
-from .utils import compute_damage_parameter, find_mean_cw, find_max_cw
-from ..plots.plots import plot_analysis
+
+from scipy.spatial import distance_matrix
+from scipy.sparse.csgraph import connected_components
+from scipy.sparse import csr_matrix
+
+from sklearn.preprocessing import MinMaxScaler, StandardScaler
+
+def read_file(filepath):
+    with open(filepath, "r") as file:
+        lines = file.readlines()
+    return lines
 
 def process_data_row(data_string):
     """
@@ -39,11 +46,6 @@ def process_data_row(data_string):
         count += 11  # Move past the 10 spaces and the character after it
 
     return values
-
-def read_file(filepath):
-    with open(filepath, "r") as file:
-        lines = file.readlines()
-    return lines
 
 def process_tb(file_path):
     """
@@ -134,16 +136,16 @@ def process_tb(file_path):
                 for j, var in enumerate(variables):
                     vals[var] = float(data[j])
 
-                coord_val = line[-count+1:]
-                x,y,z,_ = process_data_row(coord_val)
+                coord_val = line[-count+2:]  ## +2 Will give issues with negative coordinates, +1 gives issues with exponents
+                x,y,z = process_data_row(coord_val)
                 coord_vals = {'X0': x, 'Y0': y,'Z0': z}
-
                 record = {**info,**coord_vals,**vals}
                 data_list.append(record)
                 continue
 
             if values and nodes:  # Improve implementation not very resilient
                 nodn_n = int(line[1:6])
+                vals = {'Node': nodn_n}
 
                 if coordinates:
                     count = ncoord*10 + (ncoord-1) + 3
@@ -152,14 +154,14 @@ def process_tb(file_path):
                     data_string = line[9:]
 
                 data = process_data_row(data_string)
-                vals = {'Node': nodn_n}
+                
                 for j, var in enumerate(variables):
                     vals[var] = float(data[j])
                 
-                coord_val = line[-count+1:]
-                x,y,_ = process_data_row(coord_val)
+                coord_val = line[-count+3:]
+                x,y = process_data_row(coord_val)
                 coord_vals = {'X0': x, 'Y0': y}
-
+                
                 record = {**info, **coord_vals, **vals}
                 data_list.append(record)
                 continue
@@ -172,92 +174,105 @@ def process_tb(file_path):
                 return errors
 
     df = pd.DataFrame(data_list)
-    # col = df.pop('Node')
-    # insert = df.columns.get_loc('Element') + 1
-    # df.insert(insert, 'Node', col)
     return df
 
-def analyse_tabulated(df, analysis_info):
-    """
-    Analyzes tabulated data based on the given analysis information.
+def find_connected_components(dist_matrix, d_threshold):
+    """Finds connected components based on a distance threshold.
 
     Args:
-        df (pandas.DataFrame): The tabulated data to be analyzed.
-        analysis_info (dict): Information about the analysis to be performed.
+        dist_matrix (numpy.ndarray): The distance matrix.
+        d_threshold (float): The distance threshold.
 
     Returns:
-        dict: A dictionary containing the analysis results for each analysis type.
-
+        int: The number of connected components.
+        numpy.ndarray: The labels indicating the component membership of each node.
     """
-    data = {}
-    for analysis in analysis_info:
-        vals = []
-        
-        if 'Relative' in analysis:
-            for node in analysis_info[analysis]['Node Nr']:
-                u = df[df['Node'] == node][['Step nr.', 'TDtY']]
-                vals.append(u)
-        
-        if 'Mutual' in analysis:
-            sets = analysis_info[analysis]['Node Nr']
-            typos = analysis_info[analysis]['Reference']
-            for set,type in zip(sets, typos):
-                merged_df = pd.DataFrame(df['Step nr.'].unique(), columns=['Step nr.'])
-                for node,axis in zip(set,type):
-                    temp_df = df[df['Node'] == node][['Step nr.',axis]].copy()
-                    temp_df.rename(columns={'TDtY': f'{axis} Node {node}'}, inplace=True)
-                    merged_df = pd.merge(merged_df, temp_df, on='Step nr.', how='left')
-                merged_df.drop(columns=['Step nr.'], inplace=True)
-                vals.append(merged_df)
+    """Finds connected components based on a distance threshold."""
+    connectivity = dist_matrix <= d_threshold
+    connectivity_sparse = csr_matrix(connectivity)
+    n_components, labels = connected_components(csgraph=connectivity_sparse, directed=False)
+    return n_components, labels
 
-        if 'Crack' in analysis:
-            for EOI in analysis_info[analysis]['EOI']:
-                vals.append(find_max_cw(EOI, df))
-
-        if 'Damage' in analysis:
-            for param in analysis_info[analysis]['parameters']:
-                if param == 'cracks':
-                    for crack_set in analysis_info[analysis]['parameters'][param]: 
-                        c_w = compute_damage_parameter(df, crack_set)
-                        vals.append(c_w)
-        
-        data[analysis] = vals
-    return data
-
-def single_tb_analysis(file_path, analysis_info, plot_settings):
-    """
-    Perform tabulated analysis on a single file.
-
+def calculate_crack_properties(df_filtered, n_components):
+    """Calculates the crack width and length for each component.
     Args:
-        file_path (str): The path to the tabulated file.
-        analysis_info (dict): Information about the analysis.
-        plot_settings (dict): Settings for plotting the analysis.
+        df_filtered (DataFrame): The filtered DataFrame containing the crack data.
+        n_components (int): The number of components.
+    Returns:
+        dict: A dictionary containing the crack properties for each component. The keys are the crack indices and the values are dictionaries with the following properties:
+            - length (float): The length of the crack.
+            - average_width (float): The average width of the crack.
+            - component (int): The component index.
+            - elements (list): A list of unique element IDs associated with the crack.
+    """
+    
+    cracks = {}
+
+    for component in range(n_components):
+        component_points = df_filtered[df_filtered['Component'] == component][['X0', 'Y0']].values
+        component_elements = df_filtered[df_filtered['Component'] == component]['Element'].unique()
+        
+        if component_points.shape[0] > 1:
+            component_dist_matrix = distance_matrix(component_points, component_points)
+            max_distance = np.max(component_dist_matrix)
+            crack_length = max_distance
+        else:
+            crack_length = 0
+        average_crack_width = df_filtered[df_filtered['Component'] == component]['Ecw1'].mean()
+        
+        crack_info = {f'Crack {component}': {'length': crack_length,
+                                            'average_width': average_crack_width,
+                                            'component': component,
+                                            'elements': component_elements.tolist(),  # Convert to list for JSON serialization compatibility
+                                            }}
+        cracks.update(crack_info)
+            
+    return cracks
+
+def analyze_cracks(df_filtered, d_threshold):
+    """
+    Analyzes cracks in a filtered dataframe.
+    Parameters:
+    - df_filtered (DataFrame): The filtered dataframe containing crack data.
+    - d_threshold (float): The distance threshold for determining connected components.
+    Returns:
+    - cracks (DataFrame): The dataframe containing calculated crack properties.
+    """
+    
+    points = df_filtered[['X0', 'Y0']].values
+    dist_matrix = distance_matrix(points, points)
+    n_components, labels = find_connected_components(dist_matrix, d_threshold)
+    df_filtered['Component'] = labels
+    cracks = calculate_crack_properties(df_filtered, n_components)
+    
+    return cracks
+
+def compute_damage_parameter(crack_dict) -> float:
+    """
+    Compute the damage parameter based on the given dataframe and damage dictionary.
+
+    Parameters:
+    - df: The dataframe containing the data.
+    - damage: A dictionary containing the damage information.
 
     Returns:
-        tuple: A tuple containing two elements:
-            - minfo (dict): Information about the analysis results, including the number of elements and nodes.
-            - data (dict): The analyzed data.
+    - The computed damage parameter.
 
     """
-    directory = os.path.dirname(file_path)
-    analysis_dir = os.path.join(directory, 'analysis/results')
-    os.makedirs(analysis_dir, exist_ok=True)
-
-    # Perform the analysis
-    df = process_tb(file_path)
-    data = analyse_tabulated(df, analysis_info)
-    figures, titles = plot_analysis(data, analysis_info, plot_settings)
-
-    for i, fig in enumerate(figures, start=1): # Save the figures
-        fig_path = os.path.join(analysis_dir, f'{titles[i-1]}.png')
-        if os.path.exists(fig_path):
-            os.remove(fig_path)  # remove the file if it already exists
-        fig.savefig(fig_path)
-        close()
+    n_c = 0
+    c_w_n = []
+    c_w_d = []
+    
+    for crack in crack_dict.values():
+        n_c += 1
         
-    minfo = {
-        'N Elements': [len(df['Element'].unique())],
-        'N Nodes':  [len(df['Node'].unique())]
-    }
-    return minfo, data
-
+        c_w = crack['average_width']
+        l_c = crack['length']
+        
+        c_w_n += [c_w**2 * l_c]
+        c_w_d += [c_w * l_c]
+        
+    c_w = sum(c_w_n) / sum(c_w_d) if len(c_w_d) != 0 else 0
+    
+    psi = 2 * n_c**0.15 * c_w**0.3
+    return psi
